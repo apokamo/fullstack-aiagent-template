@@ -1,0 +1,4 @@
+interface:
+  display_name: "documentation-update"
+  short_description: "Run the documentation-update step safely."
+  default_prompt: "Use $documentation-update to complete this workflow step safely."

@@ -1,0 +1,23 @@
+# kaji harness configuration
+[paths]
+artifacts_dir = ".kaji/artifacts"
+skill_dir = ".claude/skills"
+worktree_prefix = "fullstack-aiagent-template"
+
+[execution]
+default_timeout = 9600
+agent_runner = "interactive_terminal"            # Herdr pane で対話 CLI を起動し verdict.yaml 出現を完了トリガにする
+interactive_terminal_backend = "herdr"           # Kaji が所有する Herdr pane の lifecycle を管理する
+interactive_terminal_close_on_verdict = true     # verdict 検知で所有 pane を閉じる（デバッグ時は --no-interactive-terminal-close-on-verdict）
+failure_triage = true                            # ERROR / triage 対象 ABORT を分類し証跡を残す
+auto_recover = true                              # decision=resume のみ 10 分後に child run を 1 回起動
+
+[provider]
+type = "github"
+
+[provider.github]
+# テンプレートの仮の値。`<` と `>` は GitHub の owner 名・repository 名に使えないため、
+# 自分の repository に書き換えるまで kaji の GitHub 操作は必ず失敗する。
+# 設定手順は docs/howto/use-template.md を参照。
+repo = "<owner>/<repo>"
+git_remote = "origin"

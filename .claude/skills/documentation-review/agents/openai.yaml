@@ -1,0 +1,4 @@
+interface:
+  display_name: "documentation-review"
+  short_description: "Run the documentation-review step safely."
+  default_prompt: "Use $documentation-review to complete this workflow step safely."

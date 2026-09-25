@@ -1,0 +1,24 @@
+{
+  "version": "sample-rubric-v2",
+  "note": "Each judge item_id is <turn_id>-<item>. Grade only the semantic question of each item; tool choice, arguments and the approval boundary are decided mechanically and arrive as verified_items.",
+  "items": {
+    "relevance": {
+      "applies_to": "every_turn",
+      "question": "Does the answer respond to the latest request of this turn?",
+      "pass": "The answer addresses what the latest prompt asked for, including saying that the sample documents do not cover it, or greeting back a greeting.",
+      "fail": "The answer ignores the latest request, answers a different question, or only repeats an earlier turn."
+    },
+    "faithfulness": {
+      "applies_to": "every_turn",
+      "question": "Leaving aside what the answer repeats from this turn's prompt and any mention that writing needs approval, is every factual statement in the answer supported by this turn's tool results?",
+      "pass": "Facts in the answer appear in the search results or tool results of this turn. When a search found nothing relevant, the answer says so instead of guessing. An answer that states no facts (a greeting, a question back) passes. Repeating or paraphrasing what this turn's prompt asked for (for example the title and body the user asked to write down) needs no tool support, and neither does saying that writing needs approval or was not approved when the save_note result says the call was denied.",
+      "fail": "The answer states something as fact that no tool result of this turn supports, contradicts a tool result, or misstates what this turn's prompt asked for."
+    },
+    "outcome_report": {
+      "applies_to": "approval_turns",
+      "question": "Does the answer report truthfully whether the note was written?",
+      "pass": "The answer says the note was written when the save_note result confirms it, and says it was not written when the call was denied or never made. Any wording that conveys the outcome passes, such as saying the write was not approved or was denied.",
+      "fail": "The answer claims a note was written when the call was denied or never made, or claims it was not written when the result confirms it."
+    }
+  }
+}

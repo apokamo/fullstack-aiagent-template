@@ -1,0 +1,79 @@
+# Docker Compose - 共通ベース設定
+# 開発: docker compose up -d（docker-compose.override.yml が自動適用される）
+#
+# **環境別（staging / production）の overlay は同梱しない**。base 単体で使うときは
+# `docker compose -f docker-compose.yml up -d`。api は production ステージでビルドされ、
+# APP_VERSION の既定値が override 側にしか無いので build 引数の明示が要る（fail-loud）。
+
+# compose プロジェクト名。container / volume / network 名の唯一の source of truth で、
+# compose がこれをプレフィックスとして自動で付ける（override 側で個別に名前を固定
+# しないこと）。fork してリネームするときはここも変える。
+name: fullstack-aiagent-template
+
+services:
+  # PostgreSQL conversation database.
+  db:
+    image: postgres:18
+    environment:
+      # postgres:18+ で PGDATA デフォルトが /var/lib/postgresql/18/docker に変更された
+      # named volume マウント先と一致させるため明示指定
+      PGDATA: /var/lib/postgresql/data
+    env_file:
+      - secrets/db.env
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-postgres} -d $${POSTGRES_DB:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # FastAPI Application
+  api:
+    # dev / production で tag を分け、直前に build した別 target を `up` が再利用する
+    # 事故を防ぐ。`build.target` は build 時にだけ参照され、`up` は既存 image の出自を
+    # 検証しないので、分離は image tag 側で宣言する。
+    # fork して project 名を変えるときは、この image repository も変える。
+    image: fullstack-aiagent-template-api:production
+    build:
+      context: .
+      dockerfile: Dockerfile
+      # Dockerfile の最終ステージは development（production を FROM している）。
+      # target を明示しないと docker が最終ステージまで進めてしまい、base だけで
+      # build しても --reload / git / uv / pytest 入りの dev イメージになる。
+      # override 側が development に差し替えるので、base = production でよい。
+      target: production
+    env_file:
+      - secrets/db.env
+      - secrets/api.env
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # Next.js Frontend
+  web:
+    # dev / production で tag を分け、直前に build した別 target を `up` が再利用する
+    # 事故を防ぐ。fork して project 名を変えるときは、この image repository も変える。
+    image: fullstack-aiagent-template-web:production
+    build:
+      context: .
+      dockerfile: containers/web/Dockerfile
+      # development ステージを追加しても、override 無しの base は standalone の
+      # production image を作る。Dockerfile の並びにも依存させず明示する。
+      target: runner
+    environment:
+      FASTAPI_BASE_URL: "http://api:8000"
+    depends_on:
+      - api
+    healthcheck:
+      # fetch は 4xx/5xx で reject しないので、レスポンスの ok を見ないと
+      # 全リクエストが 500 の状態でも healthy になる（api 側は curl -f で担保済み）。
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s

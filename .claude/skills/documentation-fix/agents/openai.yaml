@@ -1,0 +1,4 @@
+interface:
+  display_name: "documentation-fix"
+  short_description: "Run the documentation-fix step safely."
+  default_prompt: "Use $documentation-fix to complete this workflow step safely."

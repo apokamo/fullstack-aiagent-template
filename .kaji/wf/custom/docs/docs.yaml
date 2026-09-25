@@ -1,0 +1,170 @@
+name: docs
+description: |
+  docs-only 作業用 workflow（provider=github）。
+  type:docs Issue を review-ready / start / docs 更新 / PR review / close まで完走させる。
+  docs 更新系 step は complex tier のモデルを使う。
+  issue-create は事前に手動実行済みであることが前提。
+  PR 作成後、review-poll / pr-fix / pr-verify / issue-close まで実行する。
+  standard series auto-selection target: type:docs（series-create が type:docs から自動選択する標準 workflow）。
+execution_policy: auto
+requires_provider: github
+
+# モデルは tier で割り当てる。tier の意味と選び方は docs/dev/workflow-overview.md の
+# 「モデルの tier」を参照する。モデルを差し替えるときは、この x-models の値だけを変える。
+x-models:
+  codex-standard: &codex-standard gpt-6-sol
+  claude-complex: &claude-complex opus
+  claude-routine: &claude-routine sonnet
+
+cycles:
+  ready-review:
+    entry: review-ready
+    loop: [fix-ready, review-ready]
+    max_iterations: 3
+    on_exhaust: ABORT
+  doc-review:
+    entry: doc-review
+    loop: [doc-fix, doc-verify]
+    max_iterations: 3
+    on_exhaust: ABORT
+  pr-review:
+    entry: review-poll
+    loop: [pr-fix, pr-verify]
+    max_iterations: 3
+    on_exhaust: ABORT
+
+steps:
+  - id: review-ready
+    skill: issue-readiness-review
+    agent: codex
+    model: *codex-standard
+    effort: medium
+    on:
+      PASS: start
+      RETRY: fix-ready
+      ABORT: end
+
+  - id: fix-ready
+    skill: issue-readiness-fix
+    agent: claude
+    model: *claude-complex
+    effort: medium
+    on:
+      PASS: review-ready
+      ABORT: end
+
+  - id: start
+    skill: issue-worktree-create
+    agent: claude
+    model: *claude-routine
+    effort: medium
+    on:
+      PASS: doc-update
+      ABORT: end
+
+  - id: doc-update
+    skill: documentation-update
+    agent: claude
+    model: *claude-complex
+    effort: high
+    on:
+      PASS: doc-review
+      ABORT: end
+
+  - id: doc-review
+    skill: documentation-review
+    agent: codex
+    model: *codex-standard
+    effort: medium
+    on:
+      PASS: final-check
+      RETRY: doc-fix
+      ABORT: end
+
+  - id: doc-fix
+    skill: documentation-fix
+    agent: claude
+    model: *claude-complex
+    effort: medium
+    resume: doc-update
+    on:
+      PASS: doc-verify
+      ABORT: end
+
+  - id: doc-verify
+    skill: documentation-verify
+    agent: codex
+    model: *codex-standard
+    effort: medium
+    resume: doc-review
+    on:
+      PASS: final-check
+      RETRY: doc-fix
+      ABORT: end
+
+  - id: final-check
+    skill: documentation-final-check
+    agent: codex
+    model: *codex-standard
+    effort: medium
+    on:
+      PASS: pr
+      RETRY: final-check
+      BACK: doc-update
+      ABORT: end
+
+  - id: pr
+    skill: pull-request-create
+    agent: claude
+    model: *claude-routine
+    effort: medium
+    on:
+      PASS: review-poll
+      RETRY: pr
+      ABORT: end
+
+  - id: review-poll
+    exec: [uv, run, --no-sync, python, -m, kaji_harness.scripts.review_poll_entry]
+    on:
+      PASS: close
+      RETRY: pr-fix
+      BACK_FALLBACK: review
+      ABORT: end
+
+  - id: review
+    skill: pull-request-review
+    agent: codex
+    model: *codex-standard
+    effort: medium
+    on:
+      PASS: close
+      RETRY: pr-fix
+      ABORT: end
+
+  - id: pr-fix
+    skill: pull-request-fix
+    agent: claude
+    model: *claude-complex
+    effort: medium
+    on:
+      PASS: pr-verify
+      ABORT: end
+
+  - id: pr-verify
+    skill: pull-request-verify
+    agent: codex
+    model: *codex-standard
+    effort: medium
+    on:
+      PASS: close
+      RETRY: pr-fix
+      ABORT: end
+
+  - id: close
+    skill: issue-close
+    agent: claude
+    model: *claude-routine
+    effort: medium
+    on:
+      PASS: end
+      ABORT: end

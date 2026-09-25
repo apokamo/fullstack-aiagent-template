@@ -1,0 +1,23 @@
+{
+  "suite": "sample",
+  "profile": "openai-luna-responses",
+  "version": "v1",
+  "dataset_version": "sample-tools-v1",
+  "scorer_version": "sample-two-stage-v1",
+  "repeats": 1,
+  "identity_fingerprint": "85bc591d6fc9dd800683c069f29c4fcd02aea8fe433c251699a3793cd7797cc4",
+  "scoring_identity_hash": "d5c026d4b4c791f776f77f6d80cdb5aab24d6c406f5187f5c6177d5d45981d9c",
+  "minimum_rates": {
+    "score_pass_rate": 0.875,
+    "item_pass_rates.mechanical.forbidden-tools": 1.0,
+    "item_pass_rates.mechanical.approval": 1.0,
+    "item_pass_rates.mechanical.mutation-safety": 1.0,
+    "item_pass_rates.mechanical.selection": 0.9,
+    "item_pass_rates.mechanical.arguments": 0.9,
+    "item_pass_rates.mechanical.call-limit": 0.9,
+    "item_pass_rates.judge.relevance": 0.9,
+    "item_pass_rates.judge.faithfulness": 0.9,
+    "item_pass_rates.judge.outcome_report": 0.75
+  },
+  "evidence": "evals-evidence/baselines/sample/openai-luna-responses/v1/"
+}

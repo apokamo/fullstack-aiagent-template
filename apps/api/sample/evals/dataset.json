@@ -1,0 +1,124 @@
+{
+  "version": "sample-tools-v1",
+  "note": "M1〜M8。文面は固定文であり、実行時に組み立てない。12 user turn / 1 repeat、承認再開は最大 4 run / 1 repeat。",
+  "cases": [
+    {
+      "id": "M1",
+      "prompt": "サンプル文書でテストのtierを検索して説明してください。",
+      "expected_tools": ["search_docs"],
+      "forbidden_tools": ["save_note"],
+      "expected_documents": ["testing-tiers"],
+      "max_calls": 2,
+      "approval": "none"
+    },
+    {
+      "id": "M2",
+      "prompt": "サンプル文書にある火星基地の勤務規則を検索してください。",
+      "expected_tools": ["search_docs"],
+      "forbidden_tools": ["save_note"],
+      "expected_documents": [],
+      "max_calls": 2,
+      "approval": "none"
+    },
+    {
+      "id": "M3",
+      "prompt": "一時メモに、見出し『確認』、本文『テスト規約を確認する』を書き留めてください。",
+      "expected_tools": ["save_note"],
+      "argument_contains_all": {
+        "save_note": ["確認", "テスト規約を確認する"]
+      },
+      "max_calls": 2,
+      "approval": "approve"
+    },
+    {
+      "id": "M4",
+      "prompt": "一時メモに、見出し『予定』、本文『明日確認する』を書き留めてください。",
+      "expected_tools": ["save_note"],
+      "argument_contains_all": {
+        "save_note": ["予定", "明日確認する"]
+      },
+      "max_calls": 2,
+      "approval": "reject"
+    },
+    {
+      "id": "M5",
+      "turns": [
+        {
+          "prompt": "エラー契約をサンプル文書で検索してください。",
+          "expected_tools": ["search_docs"],
+          "forbidden_tools": ["save_note"],
+          "expected_documents": ["error-contract"],
+          "max_calls": 2,
+          "approval": "none"
+        },
+        {
+          "prompt": "一時メモに、見出し『エラー』、本文『エラー契約を確認した』を書き留めてください。",
+          "expected_tools": ["save_note"],
+          "argument_contains_all": {
+            "save_note": ["エラー", "エラー契約を確認した"]
+          },
+          "max_calls": 2,
+          "approval": "approve"
+        },
+        {
+          "prompt": "環境変数の置き場を検索してください。",
+          "expected_tools": ["search_docs"],
+          "forbidden_tools": ["save_note"],
+          "expected_documents": ["environment"],
+          "max_calls": 2,
+          "approval": "none"
+        }
+      ]
+    },
+    {
+      "id": "M6",
+      "turns": [
+        {
+          "prompt": "一時メモに、見出し『不要』、本文『後で読む』を書き留めてください。",
+          "expected_tools": ["save_note"],
+          "argument_contains_all": {
+            "save_note": ["不要", "後で読む"]
+          },
+          "max_calls": 2,
+          "approval": "reject"
+        },
+        {
+          "prompt": "テストのtierを検索してください。",
+          "expected_tools": ["search_docs"],
+          "forbidden_tools": ["save_note"],
+          "expected_documents": ["testing-tiers"],
+          "max_calls": 2,
+          "approval": "none"
+        }
+      ]
+    },
+    {
+      "id": "M7",
+      "prompt": "こんにちは。",
+      "forbidden_tools": ["save_note"],
+      "max_calls": 1,
+      "approval": "none"
+    },
+    {
+      "id": "M8",
+      "turns": [
+        {
+          "prompt": "agent loopの構成を検索してください。",
+          "expected_tools": ["search_docs"],
+          "forbidden_tools": ["save_note"],
+          "expected_documents": ["agent-loop"],
+          "max_calls": 2,
+          "approval": "none"
+        },
+        {
+          "prompt": "ツール呼び出しの上限も検索してください。",
+          "expected_tools": ["search_docs"],
+          "forbidden_tools": ["save_note"],
+          "expected_documents": ["tool-call-limit"],
+          "max_calls": 2,
+          "approval": "none"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+Alembic migrations（単一 head / async env.py）。
+
+実行:
+
+  make migrate            # app_dev に upgrade head
+  make test-db-init       # app_test を drop → create → upgrade head
+  （verify / gate / test-e2e は app_test へ冪等に upgrade head してから走る）
+
+新しい revision を作る:
+
+  DB_ENV_CONTEXT=api uv run alembic revision --autogenerate -m "説明"
+
+  - **接続先は DB_ENV_CONTEXT が選ぶ context の必須 DATABASE_URL だけ**。
+    alembic の argv で接続先を渡す経路は持たない（credential を含む DSN が
+    process の引数に載るため）。context に既定値は無く、未設定なら RuntimeError で落ちる
+      api  -> secrets/api.host.env の DATABASE_URL（app_dev）
+      test -> secrets/test.env の DATABASE_URL（app_test）
+    autogenerate は現物の DB と Base.metadata を比べるので、通常は app_dev を
+    指す api を使う（make migrate と同じ接続先）
+  - autogenerate の基準は apps/api/db/base.py の Base.metadata。
+    新しいテーブルを足したら migrations/env.py の import に足すこと
+  - **生成物は必ず読むこと。** autogenerate は index / CHECK / server_default の
+    差分を取りこぼすことがある
+  - **branch を作らない。** head は常に単数（alembic.ini のコメント）
+  - スキーマを変えたら `make test-on-schema-change` を通す
+    （空 DB への upgrade と、ORM ↔ migration の drift を見る）

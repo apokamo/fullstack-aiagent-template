@@ -1,0 +1,143 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+.venv
+.venv/
+venv/
+# root 直下の virtualenv だけを対象にする。アンカー無しの `env/` は
+# `scripts/env/`（env 生成系スクリプト）まで巻き込むため。
+/ENV/
+/env/
+.env
+# `generate-env.sh --force` が作るバックアップ（中身は .env と同じ = 秘密値を含みうる）
+.env.backup.*
+
+# IDE
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Testing
+.coverage
+.pytest_cache/
+.tox/
+htmlcov/
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm
+.yarn-integrity
+
+# Test artifacts
+test-results/
+test-screenshot*.png
+**/test-screenshot*.png
+coverage.xml
+.hypothesis/
+
+# Playwright specific
+playwright-report/
+blob-report/
+playwright/.cache/
+
+# Python test cache
+.mypy_cache/
+.ruff_cache/
+
+# === Test Artifacts (拡張) ===
+test-output*.log
+*.test.log
+test-artifacts/*
+!test-artifacts/README.md
+!test-artifacts/*/README.md
+test-artifacts/logs/*
+test-artifacts/coverage/*
+.coverage.*
+
+# === Build Artifacts ===
+*.tsbuildinfo
+*.map
+!*.config.map
+
+# === Editor/OS Specific ===
+Thumbs.db
+desktop.ini
+.directory
+.Trash-*
+.nfs*
+
+# === Serena ===
+.serena/
+apps/web/.serena/
+
+# === Work Directory ===
+# 一時的な作業ファイル・調査スクリプト用ディレクトリ
+work/
+
+# === Temporary Files ===
+*.tmp
+*.bak
+*.swp~
+*.orig
+
+# Project specific
+*.log
+# アプリのログ出力（dev は repo bind mount で logs/ に書かれる）。
+# LLM の prompt / response 全文を含みうるため誤コミットを防ぐ
+logs/
+*.db
+*.sqlite
+*.sqlite3
+tmp/
+temp/
+
+# Bugfix agent artifacts and temporary files
+tmp/bugfix_artifacts/
+tmp/investigation_report_*.json
+tmp/plan_*.json
+tmp/fix_report_*.json
+tmp/runlog_*.json
+tmp/phase_comment_*.md
+tmp/pr_body_*.md
+
+.claude/scheduled_tasks.lock
+
+# Kaji workflow artifacts
+.kaji/artifacts/
+
+# Secrets (generated, not source)
+# Ignore all secrets content but keep committed templates (*.env.example).
+secrets/*
+!secrets/*.env.example
+*.pem
+.playwright-mcp/
+backups/
+
+# Local-only artifacts (smoke runs, benchmark outputs). Git-managed 外。
+.local/

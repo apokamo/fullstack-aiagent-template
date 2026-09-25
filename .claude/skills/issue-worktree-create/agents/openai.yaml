@@ -1,0 +1,4 @@
+interface:
+  display_name: "issue-worktree-create"
+  short_description: "Run the issue-worktree-create step safely."
+  default_prompt: "Use $issue-worktree-create to complete this workflow step safely."

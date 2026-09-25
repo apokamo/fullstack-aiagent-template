@@ -1,0 +1,4 @@
+interface:
+  display_name: "issue-design-review"
+  short_description: "Run the issue-design-review step safely."
+  default_prompt: "Use $issue-design-review to complete this workflow step safely."

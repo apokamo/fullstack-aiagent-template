@@ -1,0 +1,4 @@
+interface:
+  display_name: "pull-request-create"
+  short_description: "Run the pull-request-create step safely."
+  default_prompt: "Use $pull-request-create to complete this workflow step safely."

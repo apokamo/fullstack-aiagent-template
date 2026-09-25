@@ -1,0 +1,4 @@
+interface:
+  display_name: "incident-verify"
+  short_description: "Run the incident-verify step safely."
+  default_prompt: "Use $incident-verify to complete this workflow step safely."

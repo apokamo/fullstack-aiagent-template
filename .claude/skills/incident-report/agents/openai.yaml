@@ -1,0 +1,4 @@
+interface:
+  display_name: "incident-report"
+  short_description: "Run the incident-report step safely."
+  default_prompt: "Use $incident-report to complete this workflow step safely."

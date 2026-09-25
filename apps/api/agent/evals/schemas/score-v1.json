@@ -1,0 +1,474 @@
+{
+  "$defs": {
+    "ArtifactRef": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "observations",
+            "scores"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "record_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$",
+          "title": "Record Id",
+          "type": "string"
+        },
+        "digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Digest",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "record_id",
+        "digest"
+      ],
+      "title": "ArtifactRef",
+      "type": "object"
+    },
+    "CaseContract": {
+      "additionalProperties": false,
+      "properties": {
+        "case_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$",
+          "title": "Case Id",
+          "type": "string"
+        },
+        "planned_turn_ids": {
+          "items": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$",
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Planned Turn Ids",
+          "type": "array"
+        },
+        "items": {
+          "items": {
+            "$ref": "#/$defs/Obligation"
+          },
+          "minItems": 1,
+          "title": "Items",
+          "type": "array"
+        }
+      },
+      "required": [
+        "case_id",
+        "planned_turn_ids",
+        "items"
+      ],
+      "title": "CaseContract",
+      "type": "object"
+    },
+    "EvidenceSpan": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$",
+          "title": "Evidence Id",
+          "type": "string"
+        },
+        "start": {
+          "minimum": 0,
+          "title": "Start",
+          "type": "integer"
+        },
+        "end": {
+          "minimum": 0,
+          "title": "End",
+          "type": "integer"
+        },
+        "quote": {
+          "minLength": 1,
+          "title": "Quote",
+          "type": "string"
+        }
+      },
+      "required": [
+        "evidence_id",
+        "start",
+        "end",
+        "quote"
+      ],
+      "title": "EvidenceSpan",
+      "type": "object"
+    },
+    "ItemResult": {
+      "additionalProperties": false,
+      "properties": {
+        "item_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$",
+          "title": "Item Id",
+          "type": "string"
+        },
+        "outcome": {
+          "anyOf": [
+            {
+              "enum": [
+                "pass",
+                "fail",
+                "uncertain"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Outcome"
+        },
+        "status": {
+          "enum": [
+            "ok",
+            "provider_error",
+            "parser_error",
+            "evidence_missing",
+            "not_executed"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/EvidenceSpan"
+          },
+          "title": "Evidence",
+          "type": "array"
+        }
+      },
+      "required": [
+        "item_id",
+        "outcome",
+        "status",
+        "evidence"
+      ],
+      "title": "ItemResult",
+      "type": "object"
+    },
+    "JudgeIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "profile": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$",
+          "title": "Profile",
+          "type": "string"
+        },
+        "model": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$",
+          "title": "Model",
+          "type": "string"
+        },
+        "api_mode": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$",
+          "title": "Api Mode",
+          "type": "string"
+        },
+        "effort": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$",
+          "title": "Effort",
+          "type": "string"
+        },
+        "endpoint_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Endpoint Hash",
+          "type": "string"
+        },
+        "config_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Config Hash",
+          "type": "string"
+        }
+      },
+      "required": [
+        "profile",
+        "model",
+        "api_mode",
+        "effort",
+        "endpoint_hash",
+        "config_hash"
+      ],
+      "title": "JudgeIdentity",
+      "type": "object"
+    },
+    "Obligation": {
+      "additionalProperties": false,
+      "properties": {
+        "item_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$",
+          "title": "Item Id",
+          "type": "string"
+        },
+        "turn_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$",
+          "title": "Turn Id",
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "mechanical",
+            "judge"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "critical": {
+          "title": "Critical",
+          "type": "boolean"
+        },
+        "evidence_ids": {
+          "items": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$",
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Evidence Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "item_id",
+        "turn_id",
+        "source",
+        "critical",
+        "evidence_ids"
+      ],
+      "title": "Obligation",
+      "type": "object"
+    },
+    "ScoringIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "scorer": {
+          "$ref": "#/$defs/VersionedHash"
+        },
+        "rubric": {
+          "$ref": "#/$defs/VersionedHash"
+        },
+        "oracle": {
+          "$ref": "#/$defs/VersionedHash"
+        },
+        "fixture": {
+          "$ref": "#/$defs/VersionedHash"
+        },
+        "aggregation": {
+          "$ref": "#/$defs/VersionedHash"
+        },
+        "judge": {
+          "$ref": "#/$defs/JudgeIdentity"
+        }
+      },
+      "required": [
+        "scorer",
+        "rubric",
+        "oracle",
+        "fixture",
+        "aggregation",
+        "judge"
+      ],
+      "title": "ScoringIdentity",
+      "type": "object"
+    },
+    "Usage": {
+      "additionalProperties": false,
+      "properties": {
+        "requests": {
+          "minimum": 0,
+          "title": "Requests",
+          "type": "integer"
+        },
+        "input_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Input Tokens"
+        },
+        "output_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Output Tokens"
+        },
+        "reasoning_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reasoning Tokens"
+        },
+        "missing_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Missing Reason"
+        }
+      },
+      "required": [
+        "requests",
+        "input_tokens",
+        "output_tokens",
+        "missing_reason"
+      ],
+      "title": "Usage",
+      "type": "object"
+    },
+    "VersionedHash": {
+      "additionalProperties": false,
+      "properties": {
+        "version": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$",
+          "title": "Version",
+          "type": "string"
+        },
+        "digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Digest",
+          "type": "string"
+        }
+      },
+      "required": [
+        "version",
+        "digest"
+      ],
+      "title": "VersionedHash",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "eval-score-v1",
+      "default": "eval-score-v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "score_id": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$",
+      "title": "Score Id",
+      "type": "string"
+    },
+    "scoring_sha": {
+      "pattern": "^[0-9a-f]{40}$",
+      "title": "Scoring Sha",
+      "type": "string"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "observation": {
+      "$ref": "#/$defs/ArtifactRef"
+    },
+    "contract": {
+      "$ref": "#/$defs/CaseContract"
+    },
+    "identity": {
+      "$ref": "#/$defs/ScoringIdentity"
+    },
+    "judge_input_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Judge Input Hash",
+      "type": "string"
+    },
+    "judge_status": {
+      "enum": [
+        "ok",
+        "provider_error",
+        "parser_error",
+        "evidence_missing",
+        "not_executed"
+      ],
+      "title": "Judge Status",
+      "type": "string"
+    },
+    "judge_error_code": {
+      "anyOf": [
+        {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Judge Error Code"
+    },
+    "judge_usage": {
+      "$ref": "#/$defs/Usage"
+    },
+    "items": {
+      "items": {
+        "$ref": "#/$defs/ItemResult"
+      },
+      "title": "Items",
+      "type": "array"
+    },
+    "outcome": {
+      "enum": [
+        "pass",
+        "fail",
+        "undetermined"
+      ],
+      "title": "Outcome",
+      "type": "string"
+    },
+    "structural_errors": {
+      "items": {
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$",
+        "type": "string"
+      },
+      "title": "Structural Errors",
+      "type": "array"
+    },
+    "mode": {
+      "const": "analysis",
+      "default": "analysis",
+      "title": "Mode",
+      "type": "string"
+    }
+  },
+  "required": [
+    "score_id",
+    "scoring_sha",
+    "created_at",
+    "observation",
+    "contract",
+    "identity",
+    "judge_input_hash",
+    "judge_status",
+    "judge_error_code",
+    "judge_usage",
+    "items",
+    "outcome",
+    "structural_errors"
+  ],
+  "title": "ScoreRecord",
+  "type": "object"
+}

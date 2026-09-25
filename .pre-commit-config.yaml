@@ -1,0 +1,34 @@
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
+#
+# ruff / markdownlint / Prettier は local hook にし、version を `uv.lock` と
+# `package-lock.json` に一本化する。`make check-all` と同じ tool を同じ version で使う。
+repos:
+-   repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.1
+    hooks:
+    -   id: gitleaks
+-   repo: local
+    hooks:
+    -   id: ruff-check
+        name: ruff check
+        entry: uv run --no-sync ruff check --force-exclude
+        language: system
+        types_or: [python, pyi]
+    -   id: ruff-format
+        name: ruff format --check
+        entry: uv run --no-sync ruff format --check --force-exclude
+        language: system
+        types_or: [python, pyi]
+    -   id: markdownlint
+        name: markdownlint (docs:lint)
+        entry: npm run --silent docs:lint
+        language: system
+        types: [markdown]
+        pass_filenames: false
+    -   id: prettier
+        name: prettier --check (apps/web)
+        entry: npm run --silent web:format:check
+        language: system
+        files: ^apps/web/
+        pass_filenames: false

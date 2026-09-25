@@ -1,0 +1,4 @@
+interface:
+  display_name: "issue-final-check"
+  short_description: "Run the issue-final-check step safely."
+  default_prompt: "Use $issue-final-check to complete this workflow step safely."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "pull-request-fix"
+  short_description: "Run the pull-request-fix step safely."
+  default_prompt: "Use $pull-request-fix to complete this workflow step safely."

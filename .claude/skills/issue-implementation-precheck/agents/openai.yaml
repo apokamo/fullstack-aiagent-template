@@ -1,0 +1,4 @@
+interface:
+  display_name: "issue-implementation-precheck"
+  short_description: "Run the issue-implementation-precheck step safely."
+  default_prompt: "Use $issue-implementation-precheck to complete this workflow step safely."

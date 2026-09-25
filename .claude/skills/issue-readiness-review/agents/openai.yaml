@@ -1,0 +1,4 @@
+interface:
+  display_name: "issue-readiness-review"
+  short_description: "Run the issue-readiness-review step safely."
+  default_prompt: "Use $issue-readiness-review to complete this workflow step safely."

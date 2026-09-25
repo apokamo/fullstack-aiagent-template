@@ -1,0 +1,4 @@
+interface:
+  display_name: "issue-design-fix"
+  short_description: "Run the issue-design-fix step safely."
+  default_prompt: "Use $issue-design-fix to complete this workflow step safely."

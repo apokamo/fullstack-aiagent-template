@@ -1,0 +1,4 @@
+interface:
+  display_name: "issue-implementation-verify"
+  short_description: "Run the issue-implementation-verify step safely."
+  default_prompt: "Use $issue-implementation-verify to complete this workflow step safely."

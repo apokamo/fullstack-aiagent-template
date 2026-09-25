@@ -1,0 +1,40 @@
+# 改行コードの正規化
+#
+# 開発は macOS と Windows(WSL2/Ubuntu) の両方を想定する。Windows で
+# core.autocrlf=true のままチェックアウトすると .sh が CRLF になり、
+# WSL2 上でもコンテナ内でも `bash: \r: command not found` で落ちる。
+# それを git 側で防ぐ。
+
+# 既定: テキストは repo 内も checkout 時も LF に統一する
+* text=auto eol=lf
+
+# コンテナ / WSL2 で実行されるものは LF 必須（明示）
+*.sh        text eol=lf
+*.bash      text eol=lf
+Makefile    text eol=lf
+Dockerfile  text eol=lf
+*.env       text eol=lf
+*.env.example text eol=lf
+
+# Windows ネイティブで実行されるものは CRLF
+# （現時点で該当ファイルは無いが、追加されたときのため）
+*.bat       text eol=crlf
+*.cmd       text eol=crlf
+*.ps1       text eol=crlf
+
+# バイナリ（改行変換も diff もしない）
+*.png       binary
+*.jpg       binary
+*.jpeg      binary
+*.gif       binary
+*.ico       binary
+*.webp      binary
+*.woff      binary
+*.woff2     binary
+*.ttf       binary
+*.pdf       binary
+
+# 自動生成される lock ファイル。GitHub の PR 差分で既定は折り畳まれる
+# （レビュー時は展開して確認すること。差分を無効化するものではない）
+uv.lock                   linguist-generated=true
+apps/web/package-lock.json linguist-generated=true

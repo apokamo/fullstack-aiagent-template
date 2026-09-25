@@ -1,0 +1,93 @@
+# Docker Compose - 開発環境用オーバーライド
+# `docker compose up -d` で自動適用
+#
+# 命名について: container_name / volume の `name:` / network は**固定しない**。
+# compose が `docker-compose.yml` の `name:` をプレフィックスとして自動で付けるため、
+# 名前の source of truth が 1 箇所に収まる。
+# サービス間の名前解決は既定 network 上のサービス名（`db` / `api`）で行われる。
+
+services:
+  # PostgreSQL Database - 開発設定
+  db:
+    ports:
+      # host 公開のみを `15432` へ移す。container 内部ポートと
+      # サービス間の `db:5432` は変えない。`15432` が他プロセスと衝突する場合は
+      # `.env` の `DB_HOST_PORT` で checkout 単位に退避する。
+      # **`49152` 未満であること**が既定値の要件である。Windows の
+      # 動的ポート範囲（`49152`-`65535`）の内側だと WinNAT が再起動ごとに変わる
+      # 除外範囲を予約し、container は healthy のまま host publish だけが無言で
+      # 消える。以前の既定 `55432` はこの範囲の内側だった。
+      - "${DB_HOST_PORT:-15432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      # init-db.sql は volume が空のときだけ実行される（作り直しは `down -v`）
+      - ./scripts/db/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "3"
+
+  # FastAPI Application - 開発設定
+  api:
+    # base の production tag を上書きし、dev build が production 起動へ混入しないようにする。
+    image: fullstack-aiagent-template-api:development
+    build:
+      target: development
+      args:
+        # setuptools-scm 用。.dockerignore が .git/ を外すので、build context から
+        # tag 由来のバージョンは解決できない。Dockerfile 側は未指定なら意図的に
+        # fail する設計（誤バージョンの silent shipping を防ぐ fail-loud）なので、
+        # **既定値は dev の compose にだけ**置く。production ビルドは
+        # `-f docker-compose.yml` 単体で回すので fail-loud のまま。
+        APP_VERSION: ${APP_VERSION:-0.0.0.dev0}
+    ports:
+      - "8000:8000"
+    # agent の接続先は `secrets/api.env` の `LLM_PROFILE` が決める。
+    # ホストで動く LLM（`host.docker.internal:8787`）を指す profile を使う場合、
+    # **この名前を自動で用意するのは Docker Desktop / OrbStack だけ**で、Linux の
+    # Docker Engine には無いため、明示的に host-gateway へ向ける（既に持っている
+    # 環境では上書きしても同じ値）。LAN やクラウドの provider を指す profile に
+    # 切り替える場合はこの行に依存しない。base URL 単独の上書きは存在しないので、
+    # 別の endpoint が要るなら registry へ profile を足す。
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - .:/app
+      - /app/__pycache__
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "3"
+
+  # Next.js Frontend - 開発設定
+  # repo root を /workspace に再現し、next.config.ts の turbopack.root がホストと
+  # 同じ repo root を指すようにする。platform 別依存と生成物は anonymous volume で
+  # 隠し、macOS / Linux の node_modules と .next を混在させない。
+  web:
+    # base の production tag を上書きし、dev build が production 起動へ混入しないようにする。
+    image: fullstack-aiagent-template-web:development
+    build:
+      target: development
+    ports:
+      # host 公開のみを `23000` へ移す。container 内部ポートと
+      # compose の healthcheck（`http://localhost:3000`）は変えない。`23000` が
+      # 他プロセスと衝突する場合は `.env` の `WEB_HOST_PORT` で checkout 単位に退避する。
+      - "${WEB_HOST_PORT:-23000}:3000"
+    volumes:
+      - .:/workspace
+      - /workspace/apps/web/node_modules
+      - /workspace/apps/web/.next
+    healthcheck:
+      # next dev は最初の HTTP request でコンパイルする。start_period 中でも成功すれば
+      # 即 healthy になるので、cold start の失敗だけを長めに許容する。
+      start_period: 60s
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "3"
+
+volumes:
+  postgres-data:

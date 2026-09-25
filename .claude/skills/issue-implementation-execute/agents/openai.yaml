@@ -1,0 +1,4 @@
+interface:
+  display_name: "issue-implementation-execute"
+  short_description: "Run the issue-implementation-execute step safely."
+  default_prompt: "Use $issue-implementation-execute to complete this workflow step safely."

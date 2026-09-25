@@ -1,0 +1,4 @@
+interface:
+  display_name: "incident-investigate"
+  short_description: "Run the incident-investigate step safely."
+  default_prompt: "Use $incident-investigate to complete this workflow step safely."

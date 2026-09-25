@@ -1,0 +1,4 @@
+interface:
+  display_name: "pull-request-review"
+  short_description: "Run the pull-request-review step safely."
+  default_prompt: "Use $pull-request-review to complete this workflow step safely."

@@ -1,0 +1,365 @@
+[build-system]
+requires = ["setuptools>=64", "setuptools-scm>=8", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+# 配布パッケージ名。apps/api/core/config.py の DISTRIBUTION_NAME と
+# Dockerfile の SETUPTOOLS_SCM_PRETEND_VERSION_FOR_* を必ず揃えること。
+name = "fullstack-aiagent-template"
+# version は git tag を単一ソースとして setuptools-scm が動的に導出する。
+# 静的なハードコードは行わない。
+dynamic = ["version"]
+description = "Full-stack AI agent application template (FastAPI + Next.js)"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.13"
+# 依存は「残したコードが実際に import するものだけ」に絞る。
+# 足すときは import する実コードを同時に入れること。
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "pydantic>=2.10.0",
+    "pydantic-settings>=2.7.0",
+    "asyncpg>=0.31.0",
+    "sqlalchemy[asyncio]>=2.0.36",
+    # alembic: migration 基盤。**dev グループにしない。**
+    # コンテナ内から migration を流す経路で使うため
+    # production 依存に置く（Dockerfile の `COPY . .` で migrations/ もイメージに入る）。
+    "alembic>=1.16.0",
+    "structlog>=24.1.0",
+    # python-dotenv: apps/api/core/environment.py が import し、それを
+    # apps/api/core/config.py が import する = **production の起動経路上にある**。
+    # uvicorn[standard] が transitive に引いてくるので実際には入っているが、
+    # 依存先の extra の中身に依存した状態なので明示する。
+    "python-dotenv>=1.0.0",
+    "pydantic-ai-slim[openai]>=2.31,<3",
+]
+
+[dependency-groups]
+dev = [
+    # Testing
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.24.0",
+    "pytest-cov>=6.0.0",
+    "pytest-mock>=3.12.0",
+    "pytest-xdist>=3.8.0",
+    # Repository automation reads declarative label manifests directly.
+    "pyyaml>=6.0.3",
+    # The eval runner validates generated artifacts against the tracked schema.
+    "jsonschema>=4.25.1",
+    # httpx: FastAPI TestClient / ASGITransport がテストで要求する
+    "httpx>=0.28.0",
+    # kaji: .kaji/ の workflow harness（PyPI パッケージ）
+    "kaji==0.20.1",
+    # Linting & type checking
+    "ruff>=0.15.0",
+    "mypy>=1.13.0",
+    # Development tools
+    "pre-commit>=4.0.1",
+    "types-jsonschema>=4.26.0.20260518",
+]
+
+# ================================================================================
+# Ruffの設定（Pythonコードの品質チェックツール）
+# ================================================================================
+# Ruffは高速なPythonリンター・フォーマッターです。
+# Black、isort、flake8などの機能を統合し、Rustで実装されているため高速です。
+[tool.ruff]
+# 対象のPythonバージョン
+# py313 = Python 3.13を対象とする（最新の構文をサポート）
+target-version = "py313"
+
+# 1行の最大文字数
+# 88文字はBlackのデフォルト値（80文字より少し長く、読みやすさを保つ）
+line-length = 88
+
+# 有効にするルールセットと無視するルールは [tool.ruff.lint] セクションに移動しました
+
+[tool.ruff.lint]
+# 有効にするルールセット
+# 各ルールセットは特定の問題を検出します
+select = [
+    "E",   # pycodestyle errors - 基本的なスタイルエラー（インデント、空白など）
+    "W",   # pycodestyle warnings - スタイル警告（末尾の空白など）
+    "F",   # pyflakes - 論理エラー（未使用インポート、未定義変数など）
+    "I",   # isort - import文の並び順チェック
+    "B",   # flake8-bugbear - バグになりやすいコードパターンを検出
+    "C4",  # flake8-comprehensions - リスト内包表記の最適化提案
+    "UP",  # pyupgrade - 古いPython構文を新しい構文に更新
+    "ARG", # flake8-unused-arguments - 未使用の関数引数を検出
+    "SIM", # flake8-simplify - コードの簡略化提案
+    "TCH", # flake8-type-checking - 型チェック関連の問題を検出
+    "A",   # flake8-builtins - 組み込み名の shadowing を検出
+    "RUF012", # mutable なクラス属性（ClassVar 注釈の欠落）
+    "RUF100", # 無効化済みルールに対する死んだ noqa
+]
+
+# 無視するルール
+# プロジェクトの方針や実情に合わせて特定のルールを無効化
+ignore = [
+    "E501",  # line too long - 行の長さはformatterが管理するため無視
+    "B008",  # do not perform function calls in argument defaults - FastAPIで必要
+    "C901",  # too complex - 複雑度チェック（必要に応じて個別対応）
+    "ARG002", # unused method argument - クラスメソッドでselfを使わない場合がある
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+[tool.ruff.lint.per-file-ignores]
+"scripts/tests/*" = ["ARG", "FBT"]
+"scripts/*" = ["T20"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["apps", "scripts"]
+force-sort-within-sections = true
+split-on-trailing-comma = true
+
+# ================================================================================
+# MyPyの設定（静的型チェックツール）
+# ================================================================================
+# MyPyはPythonの型ヒントを検証し、型の不整合を検出します。
+# 厳格な設定を使用します。
+[tool.mypy]
+# Pythonバージョンの指定
+python_version = "3.13"
+
+# scripts/ は最上位に __init__.py を持たない。path から module 名を決め、
+# `scripts.common.x` と `common.x` の二重登録を避ける
+explicit_package_bases = true
+
+# 厳格モード有効化（多くのチェックを一括で有効化）
+strict = true
+
+# ========== 追加の厳格なチェック ==========
+
+# Any型を返す関数について警告
+# Any型は型チェックを無効化するため避けるべき
+warn_return_any = true
+
+# 使用されていない設定について警告
+warn_unused_configs = true
+
+# 型ヒントのない関数定義を禁止
+# すべての関数に型ヒントを強制
+disallow_untyped_defs = true
+
+# 不完全な型定義を禁止
+# 部分的な型ヒントも許可しない
+disallow_incomplete_defs = true
+
+# 型ヒントのない関数もチェック
+# サードパーティライブラリの関数も検証
+check_untyped_defs = true
+
+# 型ヒントのないデコレーターを禁止
+disallow_untyped_decorators = true
+
+# Optional型の暗黙的な使用を禁止
+# None可能な引数は明示的にOptional[]を使用
+no_implicit_optional = true
+
+# 不要なキャストについて警告
+# 型が既に一致している場合のcast()は不要
+warn_redundant_casts = true
+
+# 使用されていない# type: ignoreについて警告
+warn_unused_ignores = true
+
+# 戻り値のない関数でreturnが使われていたら警告
+warn_no_return = true
+
+# 到達不可能なコードについて警告
+# if False:などの後のコード
+warn_unreachable = true
+
+# 厳密な等価性チェック
+# 異なる型の比較について警告
+strict_equality = true
+
+# ========== 出力設定 ==========
+
+# エラーコードを表示（エラーの種類を識別しやすくする）
+show_error_codes = true
+
+# 列番号を表示（エラー箇所を正確に特定）
+show_column_numbers = true
+
+# 見やすい出力形式
+pretty = true
+
+# ========== モジュール別の設定オーバーライド ==========
+[[tool.mypy.overrides]]
+# テストファイルは型チェックを緩和
+# テストでは柔軟性が必要な場合がある
+module = [
+    "scripts.tests.*",  # scripts のテスト
+    "apps.api.tests.*",  # API テストファイル
+    "conftest",  # プロジェクトルートのconftest.py
+]
+# テストでは型ヒントなしを許可
+disallow_untyped_defs = false
+check_untyped_defs = false
+warn_return_any = false
+warn_unused_ignores = false
+disable_error_code = [
+    "no-untyped-def",
+    "no-untyped-call",
+    "attr-defined",
+    "misc",
+    "operator",
+    "comparison-overlap",
+    "unused-ignore",
+]
+
+[[tool.mypy.overrides]]
+# asyncpg は py.typed を出していない（stub パッケージも無い）。
+# 管理用の CREATE / DROP DATABASE を発行するために生 asyncpg を直に使う箇所がある
+# （`apps/api/tests/test_migrations.py` / `scripts/db/init_test_db.py`）。
+# アプリ本体の DB アクセスは SQLAlchemy 経由なのでこの緩和は届かない。
+module = ["asyncpg.*"]
+ignore_missing_imports = true
+
+
+# ================================================================================
+# Pytestの設定（テストフレームワーク）
+# ================================================================================
+# Pytestは Python の最も人気のあるテストフレームワークです。
+# 豊富な機能とプラグインエコシステムを提供します。
+[tool.pytest.ini_options]
+# 最小バージョン要件
+minversion = "6.0"
+
+# テストファイルを検索するディレクトリ
+# プロジェクトルートからの相対パス
+#   apps/api/tests -> api 自身のテスト
+#   scripts/tests  -> scripts/ の振る舞いのテスト
+testpaths = ["apps/api/tests", "scripts/tests"]
+
+# テストファイルとして認識するパターン
+# test_*.py または *_test.py の形式
+python_files = ["test_*.py", "*_test.py"]
+
+# テストクラスとして認識するパターン
+# Test で始まるクラス名
+python_classes = ["Test*"]
+
+# テスト関数として認識するパターン
+# test_ で始まる関数名
+python_functions = ["test_*"]
+
+# ログ出力設定
+log_cli = true
+log_cli_level = "INFO"
+log_file = "test-artifacts/logs/pytest/test.log"
+log_file_level = "DEBUG"
+
+# XML形式（pytest固有、CIツール用ではない）
+junit_family = "xunit2"
+
+# デフォルトのコマンドラインオプション
+# pytest実行時に自動的に適用される
+addopts = [
+    "-v",                           # 詳細な出力（各テストの結果を表示）
+    "--strict-config",              # 設定ファイルのエラーで即座に失敗
+    "--strict-markers",             # 未定義のマーカー使用時にエラー
+    "--tb=short",                   # トレースバックを短縮形式で表示
+]
+
+# カスタムマーカー定義
+# Note: markers defined below after filterwarnings
+
+# 非同期テストの設定
+# auto: async defで定義されたテストを自動的に非同期テストとして実行
+asyncio_mode = "auto"
+
+# 非同期フィクスチャのスコープ
+# function: 各テスト関数で独立したイベントループを使用（DB接続プールの正しい管理のため必須）
+asyncio_default_fixture_loop_scope = "function"
+
+# 警告フィルタ設定
+filterwarnings = [
+    "error",                    # デフォルトで警告をエラーとして扱う（厳格）
+    "ignore::UserWarning",      # ユーザー警告は無視（ライブラリからのものが多い）
+    "ignore::DeprecationWarning", # 非推奨警告は無視（段階的に対応）
+]
+markers = [
+    "small: Single process, no DB/API/filesystem. Test doubles only.",
+    "medium: Multiple processes allowed. localhost only (local DB). No external API.",
+    "large: No restrictions. Real API, real DB, network access allowed.",
+    "on_schema_change: schema/migration変更時のみ実行するテスト（DDLを含むテストはすべて対象）",
+    "live_api: 実API/SDK呼び出しを主題とするテスト",
+    "performance_check: 性能要件・SLOを主題とするテスト",
+    "staging_only: staging環境でのみ実行するテスト",
+    "smoke: 外部サービス接続確認テスト（スモークテスト）。回帰テスト対象外",
+    "llm: 実LLM接続を要するテスト。通常ゲート対象外・AI配線変更時のkaji条件付き確認。",
+]
+# Note: このリストは conftest.py の SIZE_MARKERS / SPECIALIZED_MARKERS と対に
+# なっている（--strict-markers）。片方だけ変更しないこと。
+
+# Coverage configuration
+[tool.coverage.run]
+source = ["apps"]
+omit = [
+    "*/tests/*",
+    "*/venv/*",
+    "*/migrations/*",
+    "*/scripts/*",
+    # 実providerを呼ぶL2 orchestrationは通常coverage母集団の外。
+    # 決定的な scorer は除外せず、用途別 eval のテストで測る。
+    "*/agent/evals/runner.py",
+]
+branch = true
+data_file = "test-artifacts/coverage/.coverage"
+
+[tool.coverage.report]
+# Small/Medium単独では判定せず、Makefileのgate-backendだけがcoverageを起動する。
+# 閾値は契約を守るテストで自然に届く水準に置き、閾値のためだけのテストを増やさない。
+# 測定対象またはworkflowのtest selectionを変えるときに再検討する。
+fail_under = 80
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+    "if TYPE_CHECKING:",
+]
+show_missing = true
+skip_covered = false
+precision = 2
+
+[tool.coverage.html]
+directory = "test-artifacts/coverage/html"
+title = "Coverage Report"
+
+[tool.coverage.xml]
+output = "test-artifacts/coverage/xml/coverage.xml"
+
+[tool.coverage.json]
+output = "test-artifacts/coverage/json/coverage.json"
+pretty_print = true
+
+# Setuptools configuration for package discovery
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["apps*"]
+exclude = ["docs*", "scripts*", ".github*"]
+
+# ================================================================================
+# setuptools-scm の設定（バージョンの単一ソース化）
+# ================================================================================
+# バージョンの source of truth は git tag のみ。
+# tag は `v` 接頭辞付き（例: v0.43.0）で、setuptools-scm が自動的に `v` を除去する。
+# version scheme は setuptools-scm デフォルト（guess-next-dev）を採用し、
+# tag 直上でない commit は PEP 440 dev version（例: 0.43.1.dev1+g<hash>）になる。
+# セクションが存在することで setuptools-scm が有効化される。
+[tool.setuptools_scm]

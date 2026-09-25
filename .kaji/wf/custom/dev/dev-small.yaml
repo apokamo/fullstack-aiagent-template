@@ -1,0 +1,164 @@
+name: dev-small
+description: |
+  決定済みの小修正をIssueの方針から実装し、独立レビュー・最終確認を経て公開する。
+  起動者が明示選択するdev workflow定義ファイル。標準dev/docsの自動選択は変更しない。
+execution_policy: auto
+requires_provider: github
+
+# モデルは tier で割り当てる。tier の意味と選び方は docs/dev/workflow-overview.md の
+# 「モデルの tier」を参照する。モデルを差し替えるときは、この x-models の値だけを変える。
+x-models:
+  codex-standard: &codex-standard gpt-6-sol
+  claude-complex: &claude-complex opus
+  claude-routine: &claude-routine sonnet
+
+cycles:
+  small-ready:
+    entry: review-ready
+    loop: [fix-ready, review-ready]
+    max_iterations: 3
+    on_exhaust: ABORT
+  small-execute:
+    entry: change
+    loop: [change]
+    max_iterations: 3
+    on_exhaust: ABORT
+  small-change-review:
+    entry: review-change
+    loop: [fix-change, verify-change]
+    max_iterations: 3
+    on_exhaust: ABORT
+  small-publish:
+    entry: pr
+    loop: [pr]
+    max_iterations: 3
+    on_exhaust: ABORT
+  small-pr-review:
+    entry: review-poll
+    loop: [pr-fix, pr-verify]
+    max_iterations: 3
+    on_exhaust: ABORT
+
+steps:
+  - id: review-ready
+    skill: issue-readiness-review
+    agent: codex
+    model: *codex-standard
+    effort: medium
+    on:
+      PASS: start
+      RETRY: fix-ready
+      ABORT: end
+
+  - id: fix-ready
+    skill: issue-readiness-fix
+    agent: claude
+    model: *claude-complex
+    effort: medium
+    on:
+      PASS: review-ready
+      ABORT: end
+
+  - id: start
+    skill: issue-worktree-create
+    agent: claude
+    model: *claude-routine
+    effort: medium
+    on:
+      PASS: change
+      ABORT: end
+
+  - id: change
+    skill: issue-small-change-execute
+    agent: claude
+    model: *claude-complex
+    effort: medium
+    on:
+      PASS: review-change
+      RETRY: change
+      ABORT: end
+
+  - id: review-change
+    skill: issue-small-change-review
+    agent: codex
+    model: *codex-standard
+    effort: medium
+    on:
+      PASS: pr
+      RETRY: fix-change
+      ABORT: end
+
+  - id: fix-change
+    skill: issue-small-change-execute
+    agent: claude
+    model: *claude-complex
+    effort: medium
+    on:
+      PASS: verify-change
+      ABORT: end
+
+  - id: verify-change
+    skill: issue-small-change-review
+    agent: codex
+    model: *codex-standard
+    effort: medium
+    on:
+      PASS: pr
+      RETRY: fix-change
+      ABORT: end
+
+  - id: pr
+    skill: pull-request-create
+    agent: claude
+    model: *claude-routine
+    effort: medium
+    on:
+      PASS: review-poll
+      RETRY: pr
+      ABORT: end
+
+  - id: review-poll
+    exec: [uv, run, --no-sync, python, -m, kaji_harness.scripts.review_poll_entry]
+    on:
+      PASS: close
+      RETRY: pr-fix
+      BACK_FALLBACK: review
+      ABORT: end
+
+  - id: review
+    skill: pull-request-review
+    agent: codex
+    model: *codex-standard
+    effort: medium
+    on:
+      PASS: close
+      RETRY: pr-fix
+      ABORT: end
+
+  - id: pr-fix
+    skill: pull-request-fix
+    agent: claude
+    model: *claude-complex
+    effort: medium
+    on:
+      PASS: pr-verify
+      ABORT: end
+
+  - id: pr-verify
+    skill: pull-request-verify
+    agent: codex
+    model: *codex-standard
+    effort: medium
+    on:
+      PASS: close
+      RETRY: pr-fix
+      ABORT: end
+
+  - id: close
+    skill: issue-close
+    agent: claude
+    model: *claude-routine
+    effort: medium
+    on:
+      PASS: end
+      ABORT: end

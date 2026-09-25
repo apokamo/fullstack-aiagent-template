@@ -1,0 +1,52 @@
+labels:
+  - name: type:feature
+    color: "0e8a16"
+    description: New user-visible capability; selects the dev workflow
+  - name: type:bug
+    color: "d73a4a"
+    description: Defect correction; selects the dev workflow
+  - name: type:refactor
+    color: "fbca04"
+    description: Behavior-preserving structural change; selects the dev workflow
+  - name: type:docs
+    color: "0075ca"
+    description: Documentation-only change; selects the documentation workflow
+  - name: type:test
+    color: "c5def5"
+    description: Test-only change; selects dev and uses a test-specific rubric
+  - name: type:chore
+    color: "ededed"
+    description: Maintenance change; selects dev and uses a chore-specific rubric
+  - name: type:perf
+    color: "a2eeef"
+    description: Measurable performance change; selects the dev workflow
+  - name: type:security
+    color: "b60205"
+    description: Security hardening or remediation; selects the dev workflow
+  - name: area:frontend
+    color: "0052cc"
+    description: Browser UI, frontend components, or web API adapters
+  - name: area:backend
+    color: "0052cc"
+    description: API, service logic, or backend provider wiring
+  - name: area:database
+    color: "0052cc"
+    description: Database schema, ORM, migration, or persistence contract
+  - name: area:agent-ai
+    color: "0052cc"
+    description: Prompt, tool, HITL, model/provider, or evaluation behavior
+  - name: area:workflow
+    color: "0052cc"
+    description: Kaji, skills, Make, scripts, or local quality workflow
+  - name: epic
+    color: "cba6f7"
+    description: Parent issue that groups sub-issues; orthogonal to the single-select type axis
+  - name: incident
+    color: "eba0ac"
+    description: Kaji workflow failure aggregated by the recovery runtime
+  - name: incident:investigating
+    color: "f9e2af"
+    description: Kaji incident currently under investigation
+  - name: incident:cause:transient
+    color: "9399b2"
+    description: Kaji incident recovered as a transient execution failure

@@ -1,0 +1,4 @@
+interface:
+  display_name: "pull-request-verify"
+  short_description: "Run the pull-request-verify step safely."
+  default_prompt: "Use $pull-request-verify to complete this workflow step safely."

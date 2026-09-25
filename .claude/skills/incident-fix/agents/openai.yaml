@@ -1,0 +1,4 @@
+interface:
+  display_name: "incident-fix"
+  short_description: "Run the incident-fix step safely."
+  default_prompt: "Use $incident-fix to complete this workflow step safely."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "issue-close"
+  short_description: "Run the issue-close step safely."
+  default_prompt: "Use $issue-close to complete this workflow step safely."

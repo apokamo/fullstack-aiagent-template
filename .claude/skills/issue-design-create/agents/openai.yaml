@@ -1,0 +1,4 @@
+interface:
+  display_name: "issue-design-create"
+  short_description: "Run the issue-design-create step safely."
+  default_prompt: "Use $issue-design-create to complete this workflow step safely."

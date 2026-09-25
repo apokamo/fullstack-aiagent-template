@@ -1,0 +1,181 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/*
+ * デザインシステムのトークンと実値。token の値の正本はこのファイルで、
+ * 決定根拠と使い分けの正本は docs/reference/frontend/design-system.md。
+ *
+ * shadcn/ui（`new-york` / baseColor `neutral` / `cssVariables: true`）の変数名を
+ * そのまま使う。`components.json` の `tailwind.css` がこのファイルを指すので、
+ * shadcn CLI で追加した component は何もしなくてもこの契約を拾う。
+ *
+ * 見た目は汎用向けにする —— 白と gray の面、操作色は濃い青、書体は system sans
+ * （`next/font` を使わないので build 時の font 取得も要らない）。
+ *
+ * contrast（WCAG 2.2）:
+ * - 本文 `--foreground` #1f2328 on `--background` #f6f7f9 = 14.7:1
+ * - 補助 `--muted-foreground` #4b5563 on `--background` = 7.0:1
+ * - `--primary-foreground` #ffffff on `--primary` #1a3e8c = 9.9:1
+ * - focus ring は `focus-visible:ring-ring/50` として **50% 合成されて**使うので、
+ *   実色ではなく合成後で選ぶ。#0a2452 の 50% は 3.1:1 で 3:1 を満たす。
+ */
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-status-running: var(--status-running);
+  --color-status-running-foreground: var(--status-running-foreground);
+  --color-status-pending: var(--status-pending);
+  --color-status-pending-foreground: var(--status-pending-foreground);
+  --color-status-responded: var(--status-responded);
+  --color-status-responded-foreground: var(--status-responded-foreground);
+  --color-status-done: var(--status-done);
+  --color-status-done-foreground: var(--status-done-foreground);
+  --color-status-denied: var(--status-denied);
+  --color-status-denied-foreground: var(--status-denied-foreground);
+  --color-status-error: var(--status-error);
+  --color-status-error-foreground: var(--status-error-foreground);
+  /*
+   * `font-sans` が既定で、`font-heading` は見出しとラベルのみに使う。
+   * どの書体を当てるかは下の `:root` の `--app-font-*` が決める。
+   */
+  --font-sans: var(--app-font-sans);
+  --font-heading: var(--app-font-heading);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+:root {
+  --radius: 0.625rem;
+
+  /*
+   * 書体は system sans。**取得も self-host もしない**ので、配布先の環境に
+   * 依存せず同じ規則で描かれる（見出しも本文と同じ族で、太さだけで区別する）。
+   */
+  --app-font-sans:
+    system-ui, -apple-system, "Segoe UI", "Hiragino Kaku Gothic ProN",
+    "Hiragino Sans", "Noto Sans JP", "Meiryo", sans-serif;
+  --app-font-heading: var(--app-font-sans);
+
+  /* サーフェスとインク。地は薄い gray、カードは白。 */
+  --background: #f6f7f9;
+  --foreground: #1f2328;
+  --card: #ffffff;
+  --card-foreground: #1f2328;
+  --popover: #ffffff;
+  --popover-foreground: #1f2328;
+
+  /* 操作色は濃い青。押せるものだけに使う。 */
+  --primary: #1a3e8c;
+  --primary-foreground: #ffffff;
+  --secondary: #eef1f6;
+  --secondary-foreground: #1f2328;
+  --muted: #eef1f6;
+  --muted-foreground: #4b5563;
+  --accent: #e8edf7;
+  --accent-foreground: #1a3e8c;
+  --destructive: #b3261e;
+
+  /* 境界は薄く。区切りは余白と面が担当する。 */
+  --border: #e3e6ea;
+  --input: #d5d9df;
+
+  /* 50% 合成後で 3:1 を満たす濃さ（上のコメント参照）。 */
+  --ring: #0a2452;
+
+  /* 注意喚起。`--destructive` ほど強くない。 */
+  --warning: #f5c26b;
+  --warning-foreground: #1f2328;
+
+  /*
+   * 系列色。shadcn/ui の既定 token で、サンプルの画面は使わない。グラフを描く
+   * component を追加したときに参照する。
+   */
+  --chart-1: #1273c6;
+  --chart-2: #d9781a;
+  --chart-3: #cc4a80;
+  --chart-4: #5b4bc4;
+  --chart-5: #0f8f66;
+
+  /* 状態。系列色とは共有しない。必ずアイコンとラベルを伴う。 */
+  --status-running: #eef1f6;
+  --status-running-foreground: #4b5563;
+  --status-pending: #fdf0dc;
+  --status-pending-foreground: #8a5a00;
+  --status-responded: #e8edf7;
+  --status-responded-foreground: #1a3e8c;
+  --status-done: #e4f2ec;
+  --status-done-foreground: #0b7350;
+  --status-denied: #ede9e3;
+  --status-denied-foreground: #6b5540;
+  --status-error: #f9e8e6;
+  --status-error-foreground: #b02f26;
+}
+
+/*
+ * サンプルはライトテーマだけを持ち、`.dark` を付与する経路は無い。
+ *
+ * ブロックを残すのは、shadcn CLI が追加する component が `dark:` 前提の class を
+ * 出力するため。変数ごと消すとそれらが未定義色で壊れる。値は shadcn の雛形のまま。
+ */
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background font-sans text-foreground;
+  }
+  /* 表の数値は桁を揃える。 */
+  table,
+  [data-slot="table"] {
+    font-variant-numeric: tabular-nums;
+  }
+}

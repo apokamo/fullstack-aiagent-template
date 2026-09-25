@@ -1,0 +1,4 @@
+interface:
+  display_name: "documentation-final-check"
+  short_description: "Run the documentation-final-check step safely."
+  default_prompt: "Use $documentation-final-check to complete this workflow step safely."

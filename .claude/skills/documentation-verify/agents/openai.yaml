@@ -1,0 +1,4 @@
+interface:
+  display_name: "documentation-verify"
+  short_description: "Run the documentation-verify step safely."
+  default_prompt: "Use $documentation-verify to complete this workflow step safely."

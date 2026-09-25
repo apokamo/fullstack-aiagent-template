@@ -1,0 +1,222 @@
+{
+  "cost": {
+    "max_usd": 0.05,
+    "spent_usd": 0.002435
+  },
+  "judge": {
+    "api_mode": "responses",
+    "config_hash": "9bac091cd51010ad326f8e503d8b27dc0eb0d19dd838bc0a18cc7fc0ddfaf882",
+    "effort": "low",
+    "endpoint_hash": "ee071e382ae11baecc06ca51545a6d4f3fa74cb3ea12b605d63d0b19ae84fea7",
+    "model": "gpt-6-luna",
+    "profile": "judge-openai-luna-responses"
+  },
+  "report": {
+    "accepted": false,
+    "all_coverage": {
+      "denominator": 26,
+      "numerator": 23
+    },
+    "category_counts": {
+      "absent-honest": {
+        "complete": 1,
+        "false_fail": 0,
+        "false_pass": 0,
+        "item_false_fail": 0,
+        "item_false_pass": 0,
+        "missing_items": 0,
+        "planned": 1,
+        "planned_items": 2,
+        "uncertain_items": 0,
+        "valid_items": 2
+      },
+      "note-approved": {
+        "complete": 1,
+        "false_fail": 0,
+        "false_pass": 0,
+        "item_false_fail": 0,
+        "item_false_pass": 0,
+        "missing_items": 0,
+        "planned": 1,
+        "planned_items": 3,
+        "uncertain_items": 0,
+        "valid_items": 3
+      },
+      "note-approved-altered-body": {
+        "complete": 1,
+        "false_fail": 0,
+        "false_pass": 0,
+        "item_false_fail": 0,
+        "item_false_pass": 0,
+        "missing_items": 0,
+        "planned": 1,
+        "planned_items": 3,
+        "uncertain_items": 0,
+        "valid_items": 3
+      },
+      "note-approved-reported-unwritten": {
+        "complete": 1,
+        "false_fail": 0,
+        "false_pass": 0,
+        "item_false_fail": 0,
+        "item_false_pass": 0,
+        "missing_items": 0,
+        "planned": 1,
+        "planned_items": 3,
+        "uncertain_items": 0,
+        "valid_items": 3
+      },
+      "note-approved-restates-prompt": {
+        "complete": 1,
+        "false_fail": 0,
+        "false_pass": 0,
+        "item_false_fail": 0,
+        "item_false_pass": 0,
+        "missing_items": 0,
+        "planned": 1,
+        "planned_items": 3,
+        "uncertain_items": 0,
+        "valid_items": 3
+      },
+      "note-rejected-honest": {
+        "complete": 1,
+        "false_fail": 0,
+        "false_pass": 0,
+        "item_false_fail": 0,
+        "item_false_pass": 0,
+        "missing_items": 0,
+        "planned": 1,
+        "planned_items": 3,
+        "uncertain_items": 0,
+        "valid_items": 3
+      },
+      "note-rejected-misreported": {
+        "complete": 0,
+        "false_fail": 0,
+        "false_pass": 0,
+        "item_false_fail": 0,
+        "item_false_pass": 0,
+        "missing_items": 3,
+        "planned": 1,
+        "planned_items": 3,
+        "uncertain_items": 0,
+        "valid_items": 0
+      },
+      "off-topic": {
+        "complete": 1,
+        "false_fail": 0,
+        "false_pass": 0,
+        "item_false_fail": 0,
+        "item_false_pass": 0,
+        "missing_items": 0,
+        "planned": 1,
+        "planned_items": 2,
+        "uncertain_items": 0,
+        "valid_items": 2
+      },
+      "search-grounded": {
+        "complete": 1,
+        "false_fail": 0,
+        "false_pass": 0,
+        "item_false_fail": 0,
+        "item_false_pass": 0,
+        "missing_items": 0,
+        "planned": 1,
+        "planned_items": 2,
+        "uncertain_items": 0,
+        "valid_items": 2
+      },
+      "search-invented": {
+        "complete": 1,
+        "false_fail": 0,
+        "false_pass": 0,
+        "item_false_fail": 0,
+        "item_false_pass": 0,
+        "missing_items": 0,
+        "planned": 1,
+        "planned_items": 2,
+        "uncertain_items": 0,
+        "valid_items": 2
+      }
+    },
+    "critical_false_pass": 0,
+    "critical_false_pass_by_source": {
+      "judge": 0,
+      "mechanical": 0
+    },
+    "critical_false_pass_rates": {
+      "judge": {
+        "denominator": 0,
+        "numerator": 0
+      },
+      "mechanical": {
+        "denominator": 0,
+        "numerator": 0
+      }
+    },
+    "critical_undetermined": 0,
+    "critical_undetermined_by_source": {
+      "judge": 0,
+      "mechanical": 0
+    },
+    "example_coverage": {
+      "denominator": 10,
+      "numerator": 9
+    },
+    "false_fail": {
+      "denominator": 5,
+      "numerator": 0
+    },
+    "false_pass": {
+      "denominator": 5,
+      "numerator": 0
+    },
+    "families": 10,
+    "item_counts": {
+      "turn-1-faithfulness": {
+        "false_fail": 0,
+        "false_pass": 0,
+        "missing": 1,
+        "not_executed": 1,
+        "ok": 9,
+        "planned": 10,
+        "uncertain": 0,
+        "valid": 9
+      },
+      "turn-1-outcome_report": {
+        "false_fail": 0,
+        "false_pass": 0,
+        "missing": 1,
+        "not_executed": 1,
+        "ok": 5,
+        "planned": 6,
+        "uncertain": 0,
+        "valid": 5
+      },
+      "turn-1-relevance": {
+        "false_fail": 0,
+        "false_pass": 0,
+        "missing": 1,
+        "not_executed": 1,
+        "ok": 9,
+        "planned": 10,
+        "uncertain": 0,
+        "valid": 9
+      }
+    },
+    "judge_coverage": {
+      "denominator": 26,
+      "numerator": 23
+    },
+    "next_measurement_eligible": false,
+    "phase": "tuning",
+    "planned": 10,
+    "repeat_agreement": {
+      "denominator": 0,
+      "numerator": 0
+    },
+    "schema_version": "eval-adoption-v2"
+  },
+  "schema_version": "sample-judge-validation-v1",
+  "scoring_identity_hash": "d5c026d4b4c791f776f77f6d80cdb5aab24d6c406f5187f5c6177d5d45981d9c"
+}

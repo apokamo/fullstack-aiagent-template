@@ -1,0 +1,20 @@
+{
+  "name": "fullstack-aiagent-template",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Repository-level frontend wrappers and documentation quality tooling. Frontend runtime dependencies remain in apps/web/package.json.",
+  "scripts": {
+    "web:dev": "npm --prefix apps/web run dev",
+    "web:build": "npm --prefix apps/web run build",
+    "web:lint": "npm --prefix apps/web run lint",
+    "web:format:check": "npm --prefix apps/web run format:check",
+    "typecheck:fe": "npm --prefix apps/web run typecheck",
+    "test:fe:small": "npm --prefix apps/web run test:small",
+    "test:fe:e2e": "npm --prefix apps/web run test:e2e",
+    "docs:lint": "markdownlint-cli2 'docs/**/*.md' 'designs/**/*.md' 'evals-evidence/**/*.md' '.claude/skills/**/*.md' 'AGENTS.md' 'CLAUDE.md' 'README.md' 'CONTRIBUTING.md' 'apps/web/AGENTS.md' 'apps/web/CLAUDE.md'"
+  },
+  "devDependencies": {
+    "markdown-it": "14.3.0",
+    "markdownlint-cli2": "0.23.2"
+  }
+}

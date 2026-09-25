@@ -1,0 +1,11 @@
+# shadcn / AI Elements の生成コード。`npx shadcn add` / `npx ai-elements add` が上書きする
+src/components/ui/
+src/components/ai-elements/
+
+# Next.js が起動時に書き換える
+tsconfig.json
+
+# test の出力と lockfile
+test-results/
+playwright-report/
+package-lock.json

@@ -1,0 +1,484 @@
+{
+  "$defs": {
+    "EvidenceItem": {
+      "additionalProperties": false,
+      "description": "One addressable text: a prompt, an answer, a tool call or its result.\n\n`text` is the span address space a judge quotes from. Tool arguments and\nresults are canonical JSON text. A live collector applies its own privacy\nboundary before it builds an item.",
+      "properties": {
+        "evidence_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$",
+          "title": "Evidence Id",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "prompt",
+            "answer",
+            "call",
+            "result",
+            "final",
+            "event"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        },
+        "status": {
+          "default": "observed",
+          "enum": [
+            "observed",
+            "executed",
+            "rejected",
+            "error"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "error_kind": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error Kind"
+        },
+        "call_id": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Call Id"
+        },
+        "result_id": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Result Id"
+        }
+      },
+      "required": [
+        "evidence_id",
+        "kind",
+        "text"
+      ],
+      "title": "EvidenceItem",
+      "type": "object"
+    },
+    "GenerationIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "profile": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$",
+          "title": "Profile",
+          "type": "string"
+        },
+        "provider": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$",
+          "title": "Provider",
+          "type": "string"
+        },
+        "model": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$",
+          "title": "Model",
+          "type": "string"
+        },
+        "protocol": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$",
+          "title": "Protocol",
+          "type": "string"
+        },
+        "api_mode": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$",
+          "title": "Api Mode",
+          "type": "string"
+        },
+        "effort": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$",
+          "title": "Effort",
+          "type": "string"
+        },
+        "endpoint_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Endpoint Hash",
+          "type": "string"
+        },
+        "config_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Config Hash",
+          "type": "string"
+        }
+      },
+      "required": [
+        "profile",
+        "provider",
+        "model",
+        "protocol",
+        "api_mode",
+        "effort",
+        "endpoint_hash",
+        "config_hash"
+      ],
+      "title": "GenerationIdentity",
+      "type": "object"
+    },
+    "TurnEvidence": {
+      "additionalProperties": false,
+      "properties": {
+        "turn_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$",
+          "title": "Turn Id",
+          "type": "string"
+        },
+        "started_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Started At"
+        },
+        "finished_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Finished At"
+        },
+        "related_turn_ids": {
+          "default": [],
+          "items": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$",
+            "type": "string"
+          },
+          "title": "Related Turn Ids",
+          "type": "array"
+        },
+        "state": {
+          "enum": [
+            "completed",
+            "failed",
+            "not_executed"
+          ],
+          "title": "State",
+          "type": "string"
+        },
+        "error_kind": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error Kind"
+        },
+        "executed_mutations": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Executed Mutations",
+          "type": "integer"
+        },
+        "approved_calls": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Approved Calls",
+          "type": "integer"
+        },
+        "privacy_violation": {
+          "default": false,
+          "title": "Privacy Violation",
+          "type": "boolean"
+        },
+        "missing_evidence_ids": {
+          "default": [],
+          "items": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$",
+            "type": "string"
+          },
+          "title": "Missing Evidence Ids",
+          "type": "array"
+        },
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/EvidenceItem"
+          },
+          "title": "Evidence",
+          "type": "array"
+        },
+        "usage": {
+          "$ref": "#/$defs/Usage"
+        }
+      },
+      "required": [
+        "turn_id",
+        "state",
+        "evidence",
+        "usage"
+      ],
+      "title": "TurnEvidence",
+      "type": "object"
+    },
+    "Usage": {
+      "additionalProperties": false,
+      "properties": {
+        "requests": {
+          "minimum": 0,
+          "title": "Requests",
+          "type": "integer"
+        },
+        "input_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Input Tokens"
+        },
+        "output_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Output Tokens"
+        },
+        "reasoning_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reasoning Tokens"
+        },
+        "missing_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Missing Reason"
+        }
+      },
+      "required": [
+        "requests",
+        "input_tokens",
+        "output_tokens",
+        "missing_reason"
+      ],
+      "title": "Usage",
+      "type": "object"
+    },
+    "VersionedHash": {
+      "additionalProperties": false,
+      "properties": {
+        "version": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$",
+          "title": "Version",
+          "type": "string"
+        },
+        "digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Digest",
+          "type": "string"
+        }
+      },
+      "required": [
+        "version",
+        "digest"
+      ],
+      "title": "VersionedHash",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "eval-observation-v1",
+      "default": "eval-observation-v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "source": {
+      "default": "synthetic",
+      "enum": [
+        "synthetic",
+        "live"
+      ],
+      "title": "Source",
+      "type": "string"
+    },
+    "observation_id": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$",
+      "title": "Observation Id",
+      "type": "string"
+    },
+    "run_id": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$",
+      "title": "Run Id",
+      "type": "string"
+    },
+    "trial_id": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$",
+      "title": "Trial Id",
+      "type": "string"
+    },
+    "case_id": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$",
+      "title": "Case Id",
+      "type": "string"
+    },
+    "repeat": {
+      "minimum": 1,
+      "title": "Repeat",
+      "type": "integer"
+    },
+    "source_sha": {
+      "pattern": "^[0-9a-f]{40}$",
+      "title": "Source Sha",
+      "type": "string"
+    },
+    "tree_dirty": {
+      "title": "Tree Dirty",
+      "type": "boolean"
+    },
+    "suite": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$",
+      "title": "Suite",
+      "type": "string"
+    },
+    "generation": {
+      "$ref": "#/$defs/GenerationIdentity"
+    },
+    "dataset": {
+      "$ref": "#/$defs/VersionedHash"
+    },
+    "source_manifest_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Source Manifest Hash",
+      "type": "string"
+    },
+    "started_at": {
+      "format": "date-time",
+      "title": "Started At",
+      "type": "string"
+    },
+    "finished_at": {
+      "format": "date-time",
+      "title": "Finished At",
+      "type": "string"
+    },
+    "turn_timeout_seconds": {
+      "exclusiveMinimum": 0,
+      "title": "Turn Timeout Seconds",
+      "type": "number"
+    },
+    "preflight": {
+      "enum": [
+        "synthetic-not-required",
+        "passed",
+        "failed"
+      ],
+      "title": "Preflight",
+      "type": "string"
+    },
+    "measurement_context_hash": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Measurement Context Hash"
+    },
+    "planned_turn_ids": {
+      "items": {
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$",
+        "type": "string"
+      },
+      "title": "Planned Turn Ids",
+      "type": "array"
+    },
+    "turns": {
+      "items": {
+        "$ref": "#/$defs/TurnEvidence"
+      },
+      "title": "Turns",
+      "type": "array"
+    }
+  },
+  "required": [
+    "observation_id",
+    "run_id",
+    "trial_id",
+    "case_id",
+    "repeat",
+    "source_sha",
+    "tree_dirty",
+    "suite",
+    "generation",
+    "dataset",
+    "source_manifest_hash",
+    "started_at",
+    "finished_at",
+    "turn_timeout_seconds",
+    "preflight",
+    "measurement_context_hash",
+    "planned_turn_ids",
+    "turns"
+  ],
+  "title": "CaseObservation",
+  "type": "object"
+}
