@@ -92,11 +92,34 @@
   export const CHAT_UNREADABLE_ERROR_MESSAGE = "応答を受け取れませんでした。";
   ```
 
-- `describeChatError(message)`の、中継の固定文言を取り出せない3つの分岐（`JSON.parse`の失敗、record以外、
-  `error`が空または文字列以外）は、受け取った`message`ではなく`CHAT_UNREADABLE_ERROR_MESSAGE`を返す。
-  取り出せる分岐（recordで`error`が空でない文字列）は変えない
-- JSDocの「読めなければ受け取った message をそのまま返す」を「読めなければ固定文言を返す。browser の
-  エラー文を画面に出さない」に直す
+- **中継の固定文言は既知の一覧で照合する**（review-design cycle 1 所見1）。`{"error": <文字列>}`という形だけでは
+  中継が積んだものと判定しない。agentの`error` partの`str(exc)`が偶然同じ形のJSON
+  （例：`{"error":"credential=example-secret"}`）でも、画面に出さないため。
+  - 中継が`/api/chat`で積む文言は4つで、すべて`chat-profiles.ts`の定数から作る。
+    `CHAT_ERROR_MESSAGES`の2つ（422・503）、`CHAT_GENERIC_ERROR_MESSAGE`（`chat backend returned an error`）、
+    今は`chat-relay.ts`の`UNREACHABLE_BODY`に直書きの`chat backend is unreachable`
+  - `chat-profiles.ts`の固定文言の節に`CHAT_UNREACHABLE_ERROR_MESSAGE = "chat backend is unreachable"`を足し、
+    `chat-relay.ts`の`UNREACHABLE_BODY`と`UPSTREAM_ERROR_BODY`はこの定数と`CHAT_GENERIC_ERROR_MESSAGE`から作る。
+    文字列は変わらない（定数の置き場所を1か所にするだけで、中継の振る舞いは変えない）
+  - 同じ節に一覧を足す。
+
+    ```ts
+    /** 中継が `{ error }` に積む固定文言の全集合。画面はこれに含まれる文言だけを出す。 */
+    const RELAY_ERROR_MESSAGES: ReadonlySet<string> = new Set([
+      ...Object.values(CHAT_ERROR_MESSAGES),
+      CHAT_GENERIC_ERROR_MESSAGE,
+      CHAT_UNREACHABLE_ERROR_MESSAGE,
+    ]);
+    ```
+
+- `describeChatError(message)`は、`message`がJSONのrecordで、`error`が`RELAY_ERROR_MESSAGES`に含まれる文字列の
+  ときだけその文字列を返す。それ以外（`JSON.parse`の失敗、record以外、`error`が文字列以外・空・一覧に無い
+  文字列）はすべて`CHAT_UNREADABLE_ERROR_MESSAGE`を返す
+- JSDocの「読めなければ受け取った message をそのまま返す」を「中継の既知の固定文言でなければ固定文言を返す。
+  browser や agent のエラー文を画面に出さない」に直す
+- 中継に新しい固定文言を足すときは、`chat-profiles.ts`の定数として足せば一覧に入る（`CHAT_ERROR_MESSAGES`は
+  自動で入る。それ以外の定数は一覧に書き足す）。一覧に無い文言は画面で固定文言になるので、漏れは秘密値の
+  表示ではなく文言の欠落として現れる
 - 文言は1つだけにする。切断・browserの通信エラー・agentの`error` part・中継を通らない非2xx（Next.js自身の
   エラーページなど）を区別しない（Issue #4 決定事項「1つの固定文言にする」）
 
@@ -109,6 +132,7 @@
 | `network error`、`Failed to fetch`、`terminated`など | `送信に失敗しました: 応答を受け取れませんでした。` |
 | agentの`error` partの`errorText`（`str(exc)`） | `送信に失敗しました: 応答を受け取れませんでした。` |
 | `{}`、`{"error":""}`、`{"error":42}`、`[1]`、`null` | `送信に失敗しました: 応答を受け取れませんでした。` |
+| `{"error":"credential=example-secret"}`など、一覧に無い文字列の`error` | `送信に失敗しました: 応答を受け取れませんでした。` |
 
 - 前置きの「送信に失敗しました: 」、`role="alert"`、再試行のボタン、色は変えない（bugの修正で表示の構成を
   作り直さない）
@@ -155,14 +179,16 @@ const respondToApproval = useCallback<ToolApprovalProps["onRespond"]>(
 
 ## 失敗と安全
 
-- 変更は画面の表示と、承認応答の前に`clearError()`を呼ぶことだけ。requestの形、中継、backendは変えない
+- 変更は画面の表示と、承認応答の前に`clearError()`を呼ぶことだけ。requestの形、backendは変えない。
+  中継は固定文言の定数の参照先を変えるだけで、返すstatusとbodyの文字列は変わらない
 - 秘密値: agentの`error` partの`str(exc)`（providerの応答本文を含みうる）も画面に出なくなる。
   `error-handling-and-logging.md`「webでのエラーの表示」の「画面は、中継が返した文言だけを表示します」に
   挙動が一致する
-- 残る限界: `Error.message`が偶然「`error`に空でない文字列を持つJSON」だった場合は、中継の固定文言と区別
-  できずにその文字列を出す。中継の既知の文言の一覧で照合する方式は、定数の置き場所を`chat-relay.ts`から
-  動かす作り直しになるので採らない（判断記録の仮定3）
-- 互換性: exportの追加（`CHAT_UNREADABLE_ERROR_MESSAGE`）と`describeChatError`の戻り値の変更だけ。
+- 同形のJSON: `Error.message`が`{"error":<文字列>}`の形でも、文字列が中継の既知の固定文言でなければ画面に
+  出さない（§1）。画面に出うるのは`chat-profiles.ts`の定数の文言だけになる。agentの例外本文がたまたま既知の
+  文言と完全に一致した場合はその文言が出るが、それは固定文言そのものなので秘密値を含まない
+- 互換性: exportの追加（`CHAT_UNREADABLE_ERROR_MESSAGE`、`CHAT_UNREACHABLE_ERROR_MESSAGE`）と
+  `describeChatError`の戻り値の変更だけ。
   `describeChatError`の利用者は`chat-shell.tsx`だけ（`grep`で確認）。`ChatSession`の型は変えない
 - rollback: `git revert`で戻る。migration、設定、依存、secretに触れない
 
@@ -205,6 +231,7 @@ const respondToApproval = useCallback<ToolApprovalProps["onRespond"]>(
 |---|---|---|
 | `@case:E5 応答の途中で切れたとき、固定文言と再試行のボタンを出し、browser のエラー文を出さず、途中までの応答を残す` | `messages: [userMessage, textMessage("a-1", "途中まで")]`、`status: "error"`、`error: new TypeError("network error")` | `role="alert"`の失敗の表示が`送信に失敗しました: 応答を受け取れませんでした。`を含む。`network error`の文字列は画面に無い。「途中まで」が出ている。「再試行」を押すと`clearError`と`regenerate`が1回ずつ呼ばれる |
 | `中継が積んだ固定文言はそのまま出す`（注釈なし） | `error: new Error(JSON.stringify({ error: "chat backend is unreachable" }))`、`status: "error"` | 失敗の表示が`送信に失敗しました: chat backend is unreachable`を含み、`応答を受け取れませんでした。`は無い |
+| `@case:E5 中継の文言でない JSON の error は画面に出さない` | `error: new Error(JSON.stringify({ error: "credential=example-secret" }))`、`status: "error"`（agentの`error` partが同形のJSONだった場合） | 失敗の表示が`送信に失敗しました: 応答を受け取れませんでした。`を含み、`credential=example-secret`の文字列は画面に無い |
 | `@case:E6 承認すると失敗の表示が消える` | `messages: [approvalPendingMessage()]`、`status: "error"`、`error: new TypeError("network error")`。`useChatMock`を`mockImplementation`にし、中で`useState`で`error`を持ち、`clearError`がそれを`undefined`にする（`useChatMock`は`useChat`の呼び出し、つまりrenderの中で呼ばれるのでhookを使える） | 押す前は失敗の表示がある。「承認」を押すと失敗の表示が消え、`addToolApprovalResponse`が`{ id: "approval-2", approved: true }`で1回。`clearError`は`addToolApprovalResponse`より先に呼ばれる（`mock.invocationCallOrder`） |
 | `@case:E6 却下すると失敗の表示が消える` | 同上 | 「却下」で失敗の表示が消え、`addToolApprovalResponse`が`{ id: "approval-2", approved: false }`で1回 |
 
@@ -221,6 +248,8 @@ const respondToApproval = useCallback<ToolApprovalProps["onRespond"]>(
 |---|---|
 | `中継が積んだ固定文言を取り出し、JSON でない message は固定文言にする`（既存の`JSON でない message はそのまま出す`を置き換える。Issue #4 決定事項） | `{"error":"選択したモデルは利用できません。"}` → その文言。`Failed to fetch`、`network error` → `CHAT_UNREADABLE_ERROR_MESSAGE` |
 | `error を読めない JSON は固定文言にする` | `{}`、`{"error":""}`、`{"error":42}`、`[1]`、`null`、`"network error"`（JSON文字列） → `CHAT_UNREADABLE_ERROR_MESSAGE` |
+| `中継の既知の文言でない error は固定文言にする`（review-design cycle 1 所見1の回帰） | `{"error":"credential=example-secret"}` → `CHAT_UNREADABLE_ERROR_MESSAGE`（`credential=example-secret`を返さない） |
+| `中継が積む固定文言はすべてそのまま出す` | `CHAT_ERROR_MESSAGES`の2つ、`CHAT_GENERIC_ERROR_MESSAGE`、`CHAT_UNREACHABLE_ERROR_MESSAGE`をそれぞれ`JSON.stringify({ error })`で渡す → その文言 |
 
 ### E2E
 
@@ -230,7 +259,8 @@ const respondToApproval = useCallback<ToolApprovalProps["onRespond"]>(
 
 ## 実装の順序（slice）
 
-1. `chat-profiles.ts`の`CHAT_UNREADABLE_ERROR_MESSAGE`と`describeChatError`、`chat-profiles.test.ts`
+1. `chat-profiles.ts`の`CHAT_UNREADABLE_ERROR_MESSAGE`・`CHAT_UNREACHABLE_ERROR_MESSAGE`・`RELAY_ERROR_MESSAGES`と
+   `describeChatError`、`chat-relay.ts`の固定bodyの定数参照、`chat-profiles.test.ts`
 2. `use-chat-session.ts`の`respondToApproval`、`chat-shell.tsx`のコメント
 3. `chat-page.test.tsx`のE5・E6と中継の固定文言のテスト、台帳への登録
 4. `docs/reference/error-handling-and-logging.md`と`docs/reference/frontend/coding.md`
@@ -256,8 +286,8 @@ backend、prompt、tool schema、agent loop、HITLの方針（承認要否、停
 
 base SHAで次を測り、実装後と比べる。
 
-- `cd apps/web && npx vitest list --tagsFilter=small --json`の件数（設計時61件）。実装後は66件
-  （chat-page 4件、chat-profiles 1件を追加。既存の1件は置き換え）
+- `cd apps/web && npx vitest list --tagsFilter=small --json`の件数（設計時61件）。実装後は69件
+  （chat-page 5件、chat-profiles 3件を追加。既存の1件は置き換え）
 - `uv run python -m scripts.testing.frontend_test_cases`が成功し、台帳が13件であること。実装後は15件で成功
 - 回帰の確認: base SHAで`describeChatError("network error")`が`network error`を返すこと（修正前の挙動）を、
   `chat-profiles.test.ts`の置き換え後のassertionが失敗することで確かめてよい
@@ -267,8 +297,8 @@ base SHAで次を測り、実装後と比べる。
 
 | Issue #4の完了条件 | 満たし方 |
 |---|---|
-| JSONとして読めないエラーのとき、固定文言と再試行のボタンが出て、browserのエラー文は出ない（Small） | §1。`@case:E5`と`chat-profiles.test.ts`の2本 |
-| 中継の固定文言が積まれたエラーは、これまでどおりその文言が出る（Small） | §1。`中継が積んだ固定文言はそのまま出す`と`chat-profiles.test.ts`の1本目 |
+| JSONとして読めないエラーのとき、固定文言と再試行のボタンが出て、browserのエラー文は出ない（Small） | §1。`@case:E5`の2本と`chat-profiles.test.ts`の3本（中継の文言でない同形のJSONを含む） |
+| 中継の固定文言が積まれたエラーは、これまでどおりその文言が出る（Small） | §1。`中継が積んだ固定文言はそのまま出す`と`chat-profiles.test.ts`の`中継が積む固定文言はすべてそのまま出す` |
 | 承認・却下をするとエラーの表示が消える（Small） | §2。`@case:E6`の2本 |
 | 追加したケースを台帳に登録し、テストに注釈を付けている | 台帳のE5・E6と注釈 |
 | `make check-all`と`make test-e2e`が成功する | 検証lane |
@@ -283,9 +313,9 @@ base SHAで次を測り、実装後と比べる。
 | 途中までの応答 | 残す | Issue #4 決定事項。AI SDKが消さない（`chat.ts` 826〜853行） | コードは変えず、E5のテストで確かめる |
 | 再試行 | 今のまま（途中までの応答を消して送り直す） | Issue #4 決定事項 | — |
 | 承認・却下で失敗の表示を消す | `respondToApproval`が`clearError()`を先に呼ぶ | Issue #4 決定事項。probe 3（再開の条件を満たさないとAI SDKは`error`を消さない） | 順序と、再開しない場合の帰結（§2） |
-| 中継とbackend | 変えない | Issue #4 範囲外（復旧の仕組みは作らない）、`error-handling-and-logging.md`（streamの途中の失敗はstatusで返せない） | — |
+| 中継とbackend | 振る舞いを変えない（中継は固定文言の定数の参照先だけ変える） | Issue #4 範囲外（復旧の仕組みは作らない）、`error-handling-and-logging.md`（streamの途中の失敗はstatusで返せない） | 返すstatusとbodyの文字列は不変 |
 | 仮定1: agentの`error` partも固定文言にする | `str(exc)`も「中継の固定文言として読めない」ので同じ固定文言にする | 仮定（二方向）。Issue #4の決定は失敗の出どころで分けず、`error-handling-and-logging.md`の「画面は中継が返した文言だけを表示します」に一致し、providerの本文を画面に出さない。設計レビューで確認する | §1の表 |
 | 仮定2: 承認・却下で消えるケースのid | 新しいid `E6`（send-error、操作、small）を台帳に登録する | 仮定（二方向）。#6の一覧にこのケースは無く、Issue #4の完了条件が台帳への登録を求める。#3のA9と同じ扱い。設計レビューで確認する | #6の一覧への追記は人の判断として作業報告で知らせる |
-| 仮定3: 中継の固定文言の判定 | 今の「`error`に空でない文字列を持つJSON」のまま | 仮定（二方向）。最小の修正にとどめる。既知の文言の一覧で照合すると定数の置き場所の作り直しになる。設計レビューで確認する | 残る限界を「失敗と安全」に書く |
+| 中継の固定文言の判定（review-design cycle 1 所見1。旧仮定3は不承認） | 中継の既知の固定文言の一覧（`RELAY_ERROR_MESSAGES`）に含まれる`error`だけを出し、同形でも一覧に無い文字列は固定文言にする | Issue #4 決定事項「中継が積んだ固定文言として読めないエラーは…1つの固定文言にする」、#6 E5、`error-handling-and-logging.md`「画面は、中継が返した文言だけを表示します」。agentの`str(exc)`が`{"error":…}`の形でも秘密値を出さない | `CHAT_UNREACHABLE_ERROR_MESSAGE`を`chat-profiles.ts`へ移し、`chat-relay.ts`はその定数を参照する（文字列と振る舞いは不変）。`credential=example-secret`のSmall回帰テスト |
 | 中継の固定文言のテスト | 注釈なしで書き、台帳に登録しない | 既存の挙動の回帰の歯止めで新しいケースではない。#6のE3・E4の登録は#5（Issue #5 対象の契約） | — |
 | 検証lane | `verify-frontend`、`verify-docs`、`check-all`、`test-e2e`。LLM・evalは不要 | `verification-matrix.md`、`llm-evals.md`（LLM経路に影響しない変更）、Issue #4の完了条件 | 実装前の基準（Small件数、台帳件数、safety net） |
