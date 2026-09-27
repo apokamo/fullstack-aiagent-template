@@ -40,11 +40,21 @@ DB名（`app_dev`、`app_test`）は変えなくても動きます。変える�
 
 ## GitHubリポジトリとつなぐ
 
-kajiを使う場合は、kajiが操作するGitHubリポジトリを設定します。テンプレートの`.kaji/config.toml`の
-`repo`は`<owner>/<repo>`という仮の値で、設定するまでkajiのGitHub操作は失敗します。
+kajiを使う場合は、kajiが操作するGitHubリポジトリをローカル設定で指定します。tracked の
+`.kaji/config.toml`の`repo`は`<owner>/<repo>`という仮の値のまま変えません。kajiはgitの`origin`から
+リポジトリを推測しないので、設定するまでGitHub操作は
+`Could not resolve to a Repository with the name '<owner>/<repo>'`で止まります。テンプレートから作った
+リポジトリでも、テンプレート本体を開発する場合でも、手順は同じです。
 
-1. `.kaji/config.toml`の`[provider.github]`で、`repo`を自分のリポジトリ（`owner/name`）に、`git_remote`を
-   そのリポジトリを指すremote名に設定します
+1. main checkoutに`.kaji/config.local.toml`を作り、操作するリポジトリを`owner/name`の形で書きます。この
+   fileはgitに入りません。kajiはこのfileの`[provider]`を`.kaji/config.toml`に上書きで重ねます
+
+   ```toml
+   [provider.github]
+   repo = "<owner>/<repo>"
+   ```
+
+   そのリポジトリを指すremoteが`origin`でない場合は、同じ表に`git_remote`も書きます
 2. `gh auth status`で、そのリポジトリを操作できるaccountでloginしていることを確かめます
 3. 適当なIssueを1件作り、`uv run kaji issue view <番号>`でそのIssueが表示されることを確かめます。別の
    リポジトリのIssueが表示された場合は、`repo`を見直します
@@ -56,6 +66,11 @@ kajiを使う場合は、kajiが操作するGitHubリポジトリを設定しま
    ```
 
    labelの定義は`.github/labels.yml`、意味は[Issueラベル](../dev/issue-labels.md)にあります
+
+kajiがIssue用worktreeを作るときは、`scripts/kaji/bootstrap_worktree_env.sh`がmain checkoutの
+`.kaji/config.local.toml`へのsymlinkをworktreeに張ります。main checkoutの設定を直せば、worktreeの
+kaji操作と設計書のpermalinkにも同じ値が使われます。worktreeに別の内容の`.kaji/config.local.toml`が
+既にある場合、bootstrapは上書きせずに止まるので、そのfileを確かめて移すか削除してからやり直します。
 
 ## サンプルを置き換える
 

@@ -130,6 +130,9 @@ tmp/pr_body_*.md
 
 # Kaji workflow artifacts
 .kaji/artifacts/
+# Kaji の利用者固有の設定（操作する GitHub repository など）。tracked の
+# .kaji/config.toml に上書きで重ねる
+.kaji/config.local.toml
 
 # Secrets (generated, not source)
 # Ignore all secrets content but keep committed templates (*.env.example).

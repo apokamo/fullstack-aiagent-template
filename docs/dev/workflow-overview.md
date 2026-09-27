@@ -234,6 +234,7 @@ git rev-list --count <remote>/<default_branch>..HEAD   # 0であること。0で
 git merge --ff-only <remote>/<default_branch>
 uv sync --frozen --group dev          # main checkoutの.venvを更新する期待された副作用
 uv run --no-sync kaji --version       # 0.20.1であること
+uv run --no-sync kaji issue view <issue-id>  # 対象repositoryの対象Issueが表示されること
 herdr --version                       # 0.8.2以上であること
 herdr status                          # Herdr serverへ接続できること
 uv run --no-sync kaji run .kaji/wf/custom/<family>/<workflow>.yaml <issue-id> --no-auto-recover
@@ -247,6 +248,9 @@ uv run --no-sync kaji run .kaji/wf/custom/<family>/<workflow>.yaml <issue-id> --
   `git merge --ff-only <remote>/<default_branch>`がdefault branch以外のbranchやdetached HEADを
   fast-forwardします。cleanであることと`git rev-list --count`が0であることではbranch identityは
   決まりません（default branchの祖先にいる別branchでも両方を満たします）。
+- `kaji issue view`は、kajiが操作するrepositoryの確認です。repositoryは`.kaji/config.local.toml`で
+  指定します（[テンプレートの使い方](../howto/use-template.md#githubリポジトリとつなぐ)）。
+  `<owner>/<repo>`を解決できないエラーや別repositoryのIssueが出た場合は起動しません。
 - `<family>`は`dev`または`docs`です。incident runはKaji recoveryが所有するため手動起動しません。
 - workflow名の選定は起動者が[Issueラベル](issue-labels.md)の規約を読んで手で行います。
 - `--no-sync`は直前の`uv sync --frozen`の結果をそのまま使うためです。省略すると起動時に再解決が走ります。
@@ -276,7 +280,8 @@ follow-up、cleanupを重複実行しません。
 
 ## Worktreeとprovider
 
-- repository: `.kaji/config.toml`の`[provider.github].repo`
+- repository: `.kaji/config.local.toml`で`.kaji/config.toml`を上書きした`[provider.github].repo`。
+  Issue worktreeはbootstrapが張るsymlinkでmain checkoutと同じ設定を使う
 - remote: `origin`
 - base: `origin/main`
 - worktree: `KAJI_WORKTREE_DIR`を優先し、なければIssue証跡と`git worktree list`から解決する

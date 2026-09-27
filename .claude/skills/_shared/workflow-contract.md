@@ -16,7 +16,9 @@ Read this file for every Kaji skill.
   alternative named in `## いつ使うか`. The same mismatch with an injected
   `verdict_path` is a workflow-contract failure and must terminate as ABORT in
   stdout and `verdict.yaml`.
-- Repository is `[provider.github].repo` in `.kaji/config.toml`; configured
+- Repository is the effective `[provider.github].repo`: the ignored
+  `.kaji/config.local.toml` overlays the tracked `.kaji/config.toml`, whose
+  `<owner>/<repo>` placeholder never names a real repository. Configured
   defaults are remote `origin` and base `main`.
 - In manual use, resolve repository values with `uv run kaji issue context <issue_id>`,
   the Issue NOTE and `git worktree list --porcelain`; never guess a worktree.

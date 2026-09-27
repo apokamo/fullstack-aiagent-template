@@ -16,8 +16,9 @@ auto_recover = true                              # decision=resume のみ 10 分
 type = "github"
 
 [provider.github]
-# テンプレートの仮の値。`<` と `>` は GitHub の owner 名・repository 名に使えないため、
-# 自分の repository に書き換えるまで kaji の GitHub 操作は必ず失敗する。
+# テンプレートの仮の値。ここは書き換えず、操作する repository は ignore される
+# .kaji/config.local.toml の [provider.github] で指定する。`<` と `>` は GitHub の
+# owner 名・repository 名に使えないため、指定するまで kaji の GitHub 操作は必ず失敗する。
 # 設定手順は docs/howto/use-template.md を参照。
 repo = "<owner>/<repo>"
 git_remote = "origin"

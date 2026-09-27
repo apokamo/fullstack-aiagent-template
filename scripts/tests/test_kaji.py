@@ -38,6 +38,7 @@ from scripts.kaji.sync_design_reference import (
     END,
     START,
     UnconfiguredRepository,
+    configured_repository,
     synchronize,
 )
 
@@ -551,6 +552,124 @@ def test_the_template_placeholder_repository_is_rejected() -> None:
     """設定前の仮の値では、存在し得ない repository への参照を作らない."""
     with pytest.raises(UnconfiguredRepository):
         synchronize("", DESIGN, SHA, "要旨", repository="<owner>/<repo>")
+
+
+TRACKED_KAJI_CONFIG = REPOSITORY_ROOT / ".kaji" / "config.toml"
+
+
+def _write_kaji_overlay(checkout: Path, repository: str = REPOSITORY) -> Path:
+    overlay = checkout / ".kaji" / "config.local.toml"
+    overlay.parent.mkdir(parents=True, exist_ok=True)
+    overlay.write_text(f'[provider.github]\nrepo = "{repository}"\n', encoding="utf-8")
+    return overlay
+
+
+def _copy_tracked_kaji_config(checkout: Path) -> None:
+    (checkout / ".kaji").mkdir(parents=True, exist_ok=True)
+    (checkout / ".kaji" / "config.toml").write_bytes(TRACKED_KAJI_CONFIG.read_bytes())
+
+
+def _bootstrap(
+    main: Path, worktree: Path, env: dict[str, str]
+) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [str(BOOTSTRAP), str(main), str(worktree)],
+        cwd=main,
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+
+@pytest.mark.medium
+@pytest.mark.uses_resource("filesystem")
+def test_bootstrap_links_the_kaji_overlay_so_the_worktree_resolves_the_same_repository(
+    tmp_path: Path,
+) -> None:
+    main, worktree, env, _ = _make_test_repository(tmp_path)
+    overlay = _write_kaji_overlay(main)
+    _copy_tracked_kaji_config(main)
+    _copy_tracked_kaji_config(worktree)
+
+    for _ in range(2):
+        completed = _bootstrap(main, worktree, env)
+        assert completed.returncode == 0, completed.stderr
+
+    target = worktree / ".kaji" / "config.local.toml"
+    assert target.is_symlink()
+    assert target.resolve() == overlay.resolve()
+    assert configured_repository(main) == REPOSITORY
+    assert configured_repository(worktree) == REPOSITORY
+
+
+@pytest.mark.medium
+@pytest.mark.uses_resource("filesystem")
+def test_bootstrap_without_a_kaji_overlay_keeps_the_previous_behavior(
+    tmp_path: Path,
+) -> None:
+    main, worktree, env, _ = _make_test_repository(tmp_path)
+
+    completed = _bootstrap(main, worktree, env)
+
+    assert completed.returncode == 0, completed.stderr
+    assert not (worktree / ".kaji" / "config.local.toml").exists()
+    assert (worktree / ".env").is_symlink()
+
+
+@pytest.mark.medium
+@pytest.mark.uses_resource("filesystem")
+def test_bootstrap_never_replaces_a_different_worktree_kaji_overlay(
+    tmp_path: Path,
+) -> None:
+    main, worktree, env, command_log = _make_test_repository(tmp_path)
+    _write_kaji_overlay(main)
+    existing = _write_kaji_overlay(worktree, "other-owner/other-repo")
+
+    completed = _bootstrap(main, worktree, env)
+
+    assert completed.returncode != 0
+    assert "target already exists" in completed.stderr
+    assert not existing.is_symlink()
+    assert "other-owner/other-repo" in existing.read_text(encoding="utf-8")
+    assert not (worktree / ".env").exists()
+    assert not command_log.exists()
+
+
+@pytest.mark.medium
+@pytest.mark.uses_resource("filesystem")
+def test_configured_repository_applies_the_local_overlay(tmp_path: Path) -> None:
+    _copy_tracked_kaji_config(tmp_path)
+    assert configured_repository(tmp_path) == "<owner>/<repo>"
+
+    _write_kaji_overlay(tmp_path)
+    assert configured_repository(tmp_path) == REPOSITORY
+
+
+@pytest.mark.medium
+@pytest.mark.uses_resource("filesystem")
+@pytest.mark.parametrize("repository", ("<owner>/<repo>", "not a repository", ""))
+def test_an_unconfigured_local_overlay_is_rejected(
+    tmp_path: Path, repository: str
+) -> None:
+    """仮値や不正な値の overlay から、誤った repository への参照を作らない."""
+    _copy_tracked_kaji_config(tmp_path)
+    _write_kaji_overlay(tmp_path, repository)
+
+    with pytest.raises(UnconfiguredRepository, match="config.local.toml"):
+        synchronize("", DESIGN, SHA, "要旨", repository=configured_repository(tmp_path))
+
+
+@pytest.mark.medium
+@pytest.mark.uses_resource("filesystem")
+def test_an_unreadable_local_overlay_is_rejected(tmp_path: Path) -> None:
+    _copy_tracked_kaji_config(tmp_path)
+    (tmp_path / ".kaji" / "config.local.toml").write_text(
+        "[provider.github\n", encoding="utf-8"
+    )
+
+    with pytest.raises(UnconfiguredRepository, match="config.local.toml"):
+        configured_repository(tmp_path)
 
 
 @pytest.mark.medium

@@ -95,6 +95,17 @@ while IFS= read -r -d '' pem_path; do
   check_file_link "$pem_path" "$issue_worktree/secrets/$pem_name" "secrets/$pem_name"
 done < <(find "$main_repo/secrets" -maxdepth 1 -type f -name '*.pem' -print0)
 
+# Kaji の GitHub repository などを持つ ignored overlay。main checkout に無い
+# ときは tracked 設定だけで動かし、worktree 側の既存ファイルには触れない。
+kaji_overlay="$main_repo/.kaji/config.local.toml"
+link_kaji_overlay=false
+if [[ -e "$kaji_overlay" || -L "$kaji_overlay" ]]; then
+  [[ -f "$kaji_overlay" ]] || abort "source is not a regular file: .kaji/config.local.toml"
+  assert_local_directory "$issue_worktree/.kaji" ".kaji directory"
+  check_file_link "$kaji_overlay" "$issue_worktree/.kaji/config.local.toml" ".kaji/config.local.toml"
+  link_kaji_overlay=true
+fi
+
 assert_local_directory "$issue_worktree/.venv" ".venv"
 assert_local_directory "$issue_worktree/node_modules" "root node_modules"
 assert_local_directory "$issue_worktree/apps/web/node_modules" "apps/web node_modules"
@@ -117,6 +128,11 @@ while IFS= read -r -d '' pem_path; do
   pem_name=$(basename "$pem_path")
   create_file_link "$pem_path" "$issue_worktree/secrets/$pem_name"
 done < <(find "$main_repo/secrets" -maxdepth 1 -type f -name '*.pem' -print0)
+
+if [[ "$link_kaji_overlay" = true ]]; then
+  mkdir -p "$issue_worktree/.kaji"
+  create_file_link "$kaji_overlay" "$issue_worktree/.kaji/config.local.toml"
+fi
 
 (
   cd "$issue_worktree"
