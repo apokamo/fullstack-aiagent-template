@@ -41,9 +41,18 @@ make env-secrets-template
 | `secrets/api.host.env` | hostで動かすときのDB接続先だけ |
 | `secrets/test.env` | テスト専用DBの接続先 |
 
-生成したfileの`<set-...>`を実際の値に書き換えます。DBの接続先はSQLAlchemyの形
-（`postgresql+asyncpg://<user>:<password>@<host>:<port>/<database>`）で書きます。hostで動かすときの
-hostは`localhost`、containerの中では`db`です。書き換えたら確認します。
+生成したfileの`<set-...>`を実際の値に書き換えます。`secrets/db.env`の`POSTGRES_PASSWORD`に
+passwordを決め、DBの接続先はSQLAlchemyの形
+（`postgresql+asyncpg://<user>:<password>@<host>:<port>/<database>`）で書きます。`<user>`と`<password>`は
+`secrets/db.env`の`POSTGRES_USER`と`POSTGRES_PASSWORD`です。
+
+| file | `<host>:<port>` | `<database>` |
+|---|---|---|
+| `secrets/api.env` | `db:5432` | `app_dev` |
+| `secrets/api.host.env` | `localhost:<DB_HOST_PORT>` | `app_dev` |
+| `secrets/test.env` | `localhost:<DB_HOST_PORT>` | `app_test` |
+
+`DB_HOST_PORT`の既定値と変え方は`.env.example`にあります。書き換えたら確認します。
 
 ```sh
 make env-secrets-check
@@ -60,7 +69,8 @@ make migrate
 make test-db-init
 ```
 
-- 初めて起動したとき、PostgreSQLは開発用DBとテスト専用DBを作ります
+- 初めて起動したとき、PostgreSQLは開発用DBとテスト専用DBを作ります。`secrets/db.env`のuserとpasswordも
+  このときだけ反映され、volumeが既にあれば後から変えても効きません
 - `make migrate`は開発用DBにmigrationを適用します。`make test-db-init`はテスト専用DBを作り直して
   migrationを適用します
 - volumeを残したまま開発用DBだけが無い場合は、`make db-create`で作ります
@@ -102,6 +112,7 @@ commitのたびに、秘密値の検査（gitleaks）、ruff、markdownlint、Pr
 | 症状 | 対処 |
 |---|---|
 | `DB へ到達できませんでした`と出る | `docker compose up -d --wait db`でDBを起動し、`make env-secrets-check`で接続先を確かめる |
+| `DB へ到達できませんでした（InvalidPasswordError ...）`と出る | volumeが別のpasswordで作られている。データを残すなら`docker compose exec db psql -U <user>`で入り、`\password <user>`で`secrets/db.env`の値に合わせる。要らないなら`docker compose down -v`でvolumeを消してから起動し直す |
 | DBには届くが、databaseが無い | 開発用は`make db-create`、テスト用は`make test-db-init`を実行する |
 | `DB_ENV_CONTEXT を明示してください`と出る | pytestやalembicを直接実行している。make targetから実行するか、`DB_ENV_CONTEXT=test`などを付ける |
 | 起動時に`LLM_PROFILE`やcredentialの不足で止まる | `secrets/api.env`の`LLM_PROFILE`と、そのprofileが要るcredentialを設定する |
