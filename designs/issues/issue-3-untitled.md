@@ -62,6 +62,8 @@ part.state === "approval-requested"`のpartが1つ以上あるとき、その最
   （判断記録の仮定1）
 - partは`isToolUIPart`（静的toolと`dynamic-tool`の両方）で判定し、AI SDKの自動再送の判定と対象を揃える。
   1つのmessageに承認待ちが複数あれば、すべてに応答するまで承認待ちが続く（自動再送の条件と一致）
+- **判定の対象と操作できる対象を一致させる**。送信を止めるpart（静的toolと`dynamic-tool`）には、必ず
+  承認・却下のボタンを出す（§3）。送信だけが止まり、押せるボタンが無い状態を作らない
 
 実装:
 
@@ -123,6 +125,13 @@ part.state === "approval-requested"`のpartが1つ以上あるとき、その最
 ### 3. 承認・却下のボタンを出す場所（`SampleResponse`）
 
 - `SampleResponseProps`に必須のprop `acceptsApproval: boolean`（このmessageが承認待ちのmessageか）を足す
+- **`dynamic-tool`も描く**。今の`isToolUIPart(part) && part.type !== "dynamic-tool"`の除外を外し、
+  `isToolUIPart(part)`のpartをすべて`Tool`で描く。生成物の`ToolHeader`は`dynamic-tool`を受け付ける
+  （`tool.tsx` 34〜43行、`type === "dynamic-tool"`なら`toolName`を名前に使う）ので、`dynamic-tool`のときは
+  `toolName={part.toolName}`を渡す。`ToolInput` / `ToolOutput`の型は`ToolUIPart | DynamicToolUIPart`
+  （同32行の`ToolPart`）で、変更なしに渡せる。生成物は編集しない
+- `tool-approval.tsx`の`pendingApprovalId(part)`の引数を`ToolUIPart | DynamicToolUIPart`に広げる。
+  AI SDKの型（`ui-messages.ts` 431〜443行）で、`dynamic-tool`も`approval-requested`のとき`approval.id`を持つ
 - `ToolApproval`は`approvalId && acceptsApproval`のときだけ出す。`ToolHeader`、`ToolInput`、`ToolOutput`は
   今までどおりどのmessageでも出す（古いpartの状態ラベルは生成物の`ToolHeader`が文字で出す）
 - `apps/web/src/sample/chat-page.tsx`は次のように配線する。
@@ -160,9 +169,10 @@ part.state === "approval-requested"`のpartが1つ以上あるとき、その最
 - 変更はすべてclient側の表示と送信の抑止で、requestの形は変えない。承認待ちの判定を誤って`true`に
   したままになると送信できなくなるが、判定はAI SDKの`messages`だけから導く純関数で、承認・却下で
   partが`approval-responded`へ変わると必ず`false`になる（§6のテストで確かめる）
-- 静的でないtool（`dynamic-tool`）の承認待ちは、`SampleResponse`がtool partとして描かないため
-  ボタンが出ない（既存の挙動）。今のbackendのtoolは静的（`tool-save_note`）なので起きない。
-  `dynamic-tool`の描画は範囲外
+- 送信を止める判定（§1、`isToolUIPart`）と、ボタンを出すpart（§3、`isToolUIPart`）は同じ集合にする。
+  `dynamic-tool`の承認待ちでも承認・却下のボタンが出るので、送信だけが止まって会話が進めなくなる状態は
+  無い。今のbackendのtoolは静的（`tool-save_note`）だが、AI SDKの型が`dynamic-tool`の承認待ちを許すので
+  共通の判定に合わせて描く（§6のA7・A9のテストで確かめる）
 - 互換性: `ChatShellProps.awaitingApproval`、`SampleResponseProps.acceptsApproval`、
   `ChatSession.pendingApprovalMessageId` / `awaitingApproval`は追加だけ。repository内の利用者は
   `sample/chat-page.tsx`だけで、必須propの追加は型検査が渡し忘れを検出する
@@ -216,6 +226,7 @@ part.state === "approval-requested"`のpartが1つ以上あるとき、その最
 | `承認要求の stream の途中は理由を出さず、停止できる` | `messages: [approvalPendingMessage()]`、`status: "streaming"` | `approval-guard`が無く、停止ボタン（`Stop`）が押せる |
 | `@case:A9 承認・却下のボタンは最後の assistant message の承認待ち part にだけ出る` | `[承認待ち(a-old, approval-old), user, 承認待ち(a-new, approval-new)]` | `tool-approval`がちょうど1件。「承認」で`addToolApprovalResponse`が`{ id: "approval-new", approved: true }`で1回 |
 | `@case:A9 最後の message が承認待ちでなければ、古い承認待ち part にボタンを出さない` | `[承認待ち(a-old), user, 本文だけのassistant]` | `tool-approval`が0件、`tool-header`は出る、Submitが押せる |
+| `@case:A7 @case:A9 dynamic tool の承認待ちでも承認・却下のボタンが出て、送信は止まる` | 最後のmessageが`type: "dynamic-tool"`、`toolName: "save_note"`、`approval-requested`（approval id `approval-dyn`）、`status: "ready"` | `tool-header`に`save_note`、`tool-approval`が1件、Submitが`disabled`で`approval-guard`が出る。「却下」で`addToolApprovalResponse`が`{ id: "approval-dyn", approved: false }`で1回 |
 
 - 既存の`@case:A2`、`@case:A3`のテストは最後のmessageが承認待ちなので、変えずに成功する
 - file先頭のコメントの「3. 送信 guard は profile の状態だけに依存する」を、profileと承認待ちに直す
@@ -228,6 +239,7 @@ part.state === "approval-requested"`のpartが1つ以上あるとき、その最
 |---|---|
 | `最後の message が承認待ちの assistant message のときだけ、その id を返す` | 最後がassistantで承認待ちpartあり → id。最後がuser → `undefined`。最後がassistantで承認待ちなし → `undefined`。承認待ちは前のmessageにだけある → `undefined`。空の配列 → `undefined` |
 | `承認待ちが複数あれば、すべてに応答するまで id を返す` | 2つのうち1つが`approval-responded`、もう1つが`approval-requested` → id |
+| `dynamic tool の承認待ちも判定し、承認 id を返す` | 最後のassistantに`dynamic-tool`の`approval-requested` → `findPendingApprovalMessageId`がid、`pendingApprovalId`が承認id |
 
 ### E2E
 
@@ -236,7 +248,7 @@ part.state === "approval-requested"`のpartが1つ以上あるとき、その最
 
 ## 実装の順序（slice）
 
-1. `tool-approval.tsx`の`findPendingApprovalMessageId`と`APPROVAL_PENDING_MESSAGE`、その補助テスト
+1. `tool-approval.tsx`の`findPendingApprovalMessageId`、`APPROVAL_PENDING_MESSAGE`、`pendingApprovalId`の引数の拡張、その補助テスト
 2. `use-chat-session.ts`の`pendingApprovalMessageId` / `awaitingApproval`と`send()`のguard
 3. `chat-shell.tsx`の`awaitingApproval`、`response.tsx`の`acceptsApproval`、`chat-page.tsx`の配線
 4. `chat-page.test.tsx`のA7・A9のテストと台帳への登録
@@ -264,7 +276,7 @@ backend、prompt、tool schema、agent loop、承認要否の規則（`mutates`�
 base SHAで次を測り、実装後と比べる。
 
 - `cd apps/web && npx vitest list --tagsFilter=small --json`の件数（設計時51件）。実装後は51 + 追加分
-  （chat-page 6件、tool-approval 2件で59件）
+  （chat-page 7件、tool-approval 3件で61件）
 - `uv run python -m scripts.testing.frontend_test_cases`が成功し、台帳が11件であること。実装後は13件で成功
 - safety net: `make verify-frontend`と`make test-e2e`がbase SHAで成功すること
 
@@ -272,9 +284,9 @@ base SHAで次を測り、実装後と比べる。
 
 | Issue #3の完了条件 | 満たし方 |
 |---|---|
-| 承認待ちのあいだは送信ボタンが押せず、Enterでも送られず、入力した文が残り、理由が表示される（Small） | §1、§2。`@case:A7`の1本目 |
+| 承認待ちのあいだは送信ボタンが押せず、Enterでも送られず、入力した文が残り、理由が表示される（Small） | §1、§2。`@case:A7`の1本目と、dynamic toolの承認待ちのテスト |
 | 承認または却下をすると、送信できる状態に戻る（Small） | §4。`@case:A7`の2本目・3本目 |
-| 承認・却下のボタンが最後のassistant messageにだけ出る（Small） | §3。`@case:A9`の2本 |
+| 承認・却下のボタンが最後のassistant messageにだけ出る（Small） | §3。`@case:A9`の3本（dynamic toolを含む） |
 | 追加したケースを台帳に登録し、テストに注釈を付けている | 台帳のA7・A9と注釈 |
 | `docs/architecture.md`の「HITL」にA7とA8の仕様が書かれている | 文書 |
 | `make check-all`と`make test-e2e`が成功する | 検証lane |
@@ -287,6 +299,7 @@ base SHAで次を測り、実装後と比べる。
 | 理由の文言 | `承認か却下を選んでください。` | Issue #3が「文言と表示場所は設計で決める」とし、例に挙げた文をそのまま採る（二方向） | 定数`APPROVAL_PENDING_MESSAGE`を`tool-approval.tsx`に置く |
 | 理由の表示場所と見た目 | 入力欄の上、`model-guard`の直後。`role="alert"`、`bg-muted` / `text-foreground` | Issue #3（設計で決める）、#6のX2、`design-system.md`「状態の表示」。失敗ではないので`destructive`を使わない（二方向） | `data-testid="approval-guard"` |
 | ボタンを出す場所 | 最後のassistant messageの承認待ちpartだけ | Issue #3 決定事項A7、AI SDK `chat.ts` 496〜545行 | `SampleResponse`の必須prop `acceptsApproval` |
+| 判定と操作の対象の一致（review-design cycle 1 所見1） | `dynamic-tool`も`SampleResponse`で描き、承認待ちなら承認・却下のボタンを出す | Issue #3 決定事項A7（承認か却下を選ぶまで進まない＝選べる必要がある）、AI SDK `ui-messages.ts` 431〜443行、生成物`tool.tsx`の`dynamic-tool`対応 | `pendingApprovalId`の引数を広げる、`toolName`を渡す、Smallの回帰ケース |
 | backend | 変えない | Issue #3 決定事項A7「backendは変更しない」 | — |
 | 再読み込みの仕様 | 今の挙動（会話は消える、書き込みは実行されない、runは`awaiting_approval`のまま、区別しない）を文書にする | Issue #3 決定事項A8、#6 決定事項A8 | 「サーバーは会話とrunを記録するが画面へ戻す経路は無い」と正確に書く（`router.py` `resolve_client_chat_id`） |
 | 判定と所有の置き場所 | 判定は`tool-approval.tsx`、状態は`useChatSession`、表示と送信の停止は`ChatShell` | `docs/architecture.md`「サンプルと共通部分の境界」（HITLとchatの画面部品は共通部分）、`coding.md`「AI SDK」 | 必須propにして用途の画面の置き換えでの渡し忘れを型検査で止める |
