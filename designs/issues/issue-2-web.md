@@ -106,7 +106,7 @@ cases:
 ### 4. テスト側の注釈
 
 - Vitest: テスト名（`it` / `test`の第1引数）の先頭に、空白区切りで1つ以上の`@case:<id>`を置く。
-  例: `it("@case:P1 @case:P8 一覧の取得中・取得失敗・生成中は選べない", ...)`。`describe`名には付けない
+  例: `it("@case:S11 @case:S1 本文と tool 結果を出す", ...)`（複数idの書式の例）。`describe`名には付けない
 - Playwright: `test(title, { tag: ["@case:A1", "@case:A4"] }, ...)`の`tag`で付ける。Playwrightはtitle中の
   `@...`もtagとして扱うが、規約は`tag` optionに統一する（検査はJSONの`tags`を読むのでどちらでも同じ結果）
 - 1つのテストが複数のケースを確かめてよい。同じテストに同じidを2回書いても1回として扱う
@@ -142,7 +142,7 @@ Issue #2の4条件:
 | 3 | ケースidが台帳の中で重複している | 同じ`id`が2件以上 |
 | 4 | テストはあるが、どの種類も台帳の必要な種類と一致しない | 注釈付きテストが1件以上あり、その種類の集合が`kinds`と交わらない。このとき条件1ではなく、この条件のmessageで報告する |
 
-条件1を「各種類に1件以上」と読むのは、#6で`E2E / Small`とした✓のケース（S1、S11、A6）が今どちらの
+条件1を「各種類に1件以上」と読むのは、初期台帳で`E2E / Small`とするケース（S11、A6）が今どちらの
 種類でもテストされており、種類ごとに確かめ忘れを検出できるほうが台帳の目的に合うため（下の判断記録の
 仮定1）。台帳の`kinds`に無い種類のテストが追加であることは、Issueの条件に無いので失敗にしない。
 
@@ -190,31 +190,48 @@ exit 0。
 
 ### 7. 台帳の最初の中身と注釈
 
-Issue #6で✓の15件だけを登録する。△と✗は#5（A7は#3、E5は#4）でテストと一緒に登録する。
+Issue #2の決定事項「今のテストで確かめられているケースだけを登録する」に従い、#6で✓のケースのうち、
+ケース本文の**すべての部分**を今のassertionが確かめている11件だけを登録する。#6で✓でも、本文の一部に
+assertionが無いP1、P2、S1、A5は、今のテストで確かめられていない部分がある（実態は△）ので登録しない
+（下の「登録しない✓のケース」）。△と✗は#5（A7は#3、E5は#4）でテストと一緒に登録する。
 
 | id | feature | category | kinds | 注釈を付けるテスト |
 |---|---|---|---|---|
 | H1 | home | 状態 | small | `src/sample/home.test.tsx`「metadata と同じ名称・説明と、チャットへの導線を出す」 |
-| P1 | model-select | 状態 | small | `src/components/chat/model-select.test.tsx`「一覧の取得中・取得失敗・生成中は選べない」 |
-| P2 | model-select | 状態 | small | `src/sample/chat-page.test.tsx`「用途の名称を見出しに出し、利用可能な profile が揃えば送信できる」 |
 | P3 | model-select | APIエラー | small | `model-select.test.tsx`「一覧取得に失敗したら理由と再取得導線を出す」 |
 | P5 | model-select | 状態 | small | `model-select.test.tsx`「利用不可の選択肢は選べず、理由を文字で添える」 |
 | P7 | model-select | 操作 | small | `model-select.test.tsx`「選べる選択肢を選ぶと呼び出し側へ id を渡す」、`src/lib/chat-profiles.test.ts`「select() だけが選択を書き換え、次の送信から効く」 |
-| P8 | model-select | 状態 | small | `model-select.test.tsx`「一覧の取得中・取得失敗・生成中は選べない」 |
-| S1 | send | 操作 | e2e, small | E2E「/chat が開き、検索の tool 結果と結論が出る」、`chat-page.test.tsx`「本文と tool 結果を出す」「送信は trim 済み本文を 1 回だけ渡す」 |
+| P8 | model-select | 状態 | small | `src/components/chat/model-select.test.tsx`「一覧の取得中・取得失敗・生成中は選べない」（`disabled: true`の分岐） |
 | S11 | send | 状態 | e2e, small | E2E「/chat が開き、検索の tool 結果と結論が出る」、`chat-page.test.tsx`「本文と tool 結果を出す」 |
 | A1 | approval | 状態 | e2e | E2E「一時メモは承認前に止まり、承認すると…」 |
 | A2 | approval | 操作 | small | `chat-page.test.tsx`「承認待ちの tool に出した承認は approved: true を 1 回だけ送る」、`src/components/chat/tool-approval.test.tsx`「押すまでは応答を送らず、承認ボタンは approved: true で応答する」 |
 | A3 | approval | 操作 | small | `chat-page.test.tsx`「却下は approved: false を 1 回だけ送る」、`tool-approval.test.tsx`「却下ボタンは approved: false で応答する」 |
 | A4 | approval | 画面遷移 | e2e | E2E「一時メモは承認前に止まり、承認すると…」 |
-| A5 | approval | 画面遷移 | e2e | E2E「一時メモを却下すると再開して書き留めなかった旨が出る」 |
 | A6 | approval | データの形 | e2e, small | E2E「一時メモは承認前に止まり、承認すると…」、`chat-profiles.test.ts`「承認再開は元の run の profile を保持する」「A 送信 → B へ変更 → 承認再開は A、続く再試行は B を送る」 |
 
 `description`は#6のケース列の文をそのまま使う。注釈はテスト名の先頭またはPlaywrightの`tag`に足すだけで、
 テストの本文、assertion、helperは変えない。
 
-観測（範囲外として記録）: P1の「『読み込み中…』が出る」はassertionが無い（`model-select.tsx`の
-placeholderにあるだけ）。#6の判定（✓）に従って登録するが、文言の確認は#5で足すよう作業報告に書く。
+登録した11件は、ケース本文の各部分に対応するassertionがあることを設計時に照合した（例: A4は承認後の
+`SAVED_TEXT`の表示と`tool-approval`の0件、S11は`tool-header`の`search_docs`とSmallの`sample-response`）。
+
+#### 登録しない✓のケース（#5で登録する）
+
+| id | 今のテストにあるassertion | 足りない部分 |
+|---|---|---|
+| P1 | `model-select.test.tsx` 65〜84行: loading中に`model-select`がdisabled | 「読み込み中…」の表示（`model-select.tsx`のplaceholderにあるだけで、assertionが無い） |
+| P2 | `chat-page.test.tsx` 118〜129行: 見出し、Submitが押せる、guardが無い | 既定のprofileが選ばれていること（選択値のassertionが無い） |
+| S1 | E2E 65〜74行: 応答カード1件と`tool-header`。`chat-page.test.tsx` 131〜139行: assistantの本文。179行以降: `sendMessage`の引数 | 自分の発話が表示されること |
+| A5 | E2E 76〜89行: 却下後の文言、`tool-approval`の0件、成功文言の不在 | 同じtool（`save_note`）が再提案されないこと（`tool-header`の件数などのassertionが無い） |
+
+- この4件のテストには`@case:`を付けない。Issue #2はテストの追加が範囲外なので、足りないassertionは
+  ここでは足さない
+- 後続の担当は#5。#5の完了条件「#6のケース一覧の全ケースが台帳に登録され、`make verify-frontend`の
+  突き合わせの検査が成功する」は#6の全ケースを対象にするので、この4件も#5でテストを揃えて登録する
+  ことになる。#5の「対象の契約」（✗と△）との対応を明確にするため、この4件は実態が△であることを
+  作業報告に記録し、#5の着手時に対象へ含める（Issue本文の書き換えは人が判断する）
+- 設計時の照合の限界: #6の✓の判定は人が付けたもので、この設計は現行assertionとの照合で上の4件を
+  △と判断した。判定の根拠は上の表の行番号（base SHA `3726421`）
 
 ### 8. 文書
 
@@ -289,7 +306,7 @@ base SHAで次を測り、実装後と比べる。
 | Issue #2の完了条件 | 満たし方 |
 |---|---|
 | 分類、台帳、突き合わせの規約が`testing.md`にあり、`test-policy.md`と`test-execution-matrix.md`が更新されている | §8 |
-| 台帳があり、✓のケースに注釈が付き、`make verify-frontend`が成功する | §3、§6、§7 |
+| 台帳があり、✓のケースに注釈が付き、`make verify-frontend`が成功する | §3、§6、§7（今のテストで確かめられている11件。P1、P2、S1、A5は一部未検証のため#5） |
 | 1件消す・存在しないid・重複で検査が失敗することを検査のテストで確かめている | 検査のテストの表の先頭3行 |
 | `tests/e2e/request/`にMediumの置き場所があり、`make test-e2e`がそこも実行する | §2（`medium` project、`.gitkeep`） |
 | `make check-all`が成功する | 検証lane |
@@ -309,11 +326,11 @@ base SHAで次を測り、実装後と比べる。
 | 台帳の置き場所と正本 | `apps/web/tests/coverage/frontend-test-cases.yml`が唯一の手書きの正本 | Issue #2 決定事項「テストケースの台帳」 | 項目名と形（§3）。Issueが「項目の名前と形は設計で決める」とした二方向の詳細 |
 | 注釈の書き方 | Playwrightは`@case:<id>`のtag、Vitestはテスト名の先頭の`@case:<id>` | Issue #2 決定事項 | 複数idの並べ方、` > `で分けた末尾の扱い（§4、§5） |
 | 失敗条件 | 4条件、browserを起動しない、Playwrightは`--list` | Issue #2 決定事項「突き合わせの検査」 | 検査を成り立たせる失敗（schema、注釈位置、small以外、収集失敗） |
-| 仮定1: 条件1の読み方 | `kinds`の各種類に1件以上 | 仮定（二方向）。確かめ忘れを種類ごとに検出するため。#6の✓の複数種類のケースは今どちらの種類もテストがあり、今の台帳は成功する。設計レビューで確認する | 条件4との報告の使い分け |
+| 仮定1: 条件1の読み方 | `kinds`の各種類に1件以上 | 仮定（二方向）。確かめ忘れを種類ごとに検出するため。初期台帳の複数種類のケース（S11、A6）は今どちらの種類もテストがあり、今の台帳は成功する。設計レビューで確認する | 条件4との報告の使い分け |
 | 仮定2: 検査の言語と置き場所 | Pythonの`scripts/testing/frontend_test_cases.py` | 仮定（二方向）。既存の`pyyaml`を使え、`scripts/tests/`は`check-all`で毎回実行される。npm依存を足さない。設計レビューで確認する | 純関数とsubprocessの分離 |
 | 仮定3: Playwrightの種類の判定 | project `e2e`（`tests/e2e/ui`）と`medium`（`tests/e2e/request`）に分け、project名から判定 | 仮定（二方向）。置き場所はIssue #2の分類表・#5の決定事項。pathの規則を検査側に二重に書かない | project名の変更（`chromium`→`e2e`/`medium`）、参照箇所0件の確認 |
 | 仮定4: `--list`のときのconfigの検査 | `process.argv`に`--list`があるときだけenvの`throw`とwebServerを省く | 仮定（二方向）。Issue #2「Playwrightは`--list`で収集する」を、偽のDB URLを渡さずに満たすため。`--list`はserverもテストも実行しないことを設計時に確認した | 直叩きの実行は今までどおり止まる |
 | laneの分担 | MediumとE2Eは`make test-e2e`、`check-all`に含めない。`verify-frontend`はVitest smallと検査 | Issue #2 決定事項「lane」、#6 決定事項 | Makefileの変更は`_verify-frontend-lane`の1段だけ |
-| 台帳の最初の中身 | #6の✓の15件だけ | Issue #2 決定事項「台帳の最初の中身」 | ケースごとの注釈先（§7）。P1の文言のassertion不足は観測として#5へ伝える |
+| 台帳の最初の中身 | #6の✓のうち、ケース本文のすべてを今のassertionが確かめている11件 | Issue #2 決定事項「台帳の最初の中身」（今のテストで確かめられているケースだけ、✗と△はテストを追加するIssueで登録）、#5の完了条件（#6の全ケースの登録）、review-designの指摘1〜3 | ケースごとの注釈先（§7）。P1、P2、S1、A5は一部未検証（実態△）として登録せず、#5へ引き継ぐ |
 | 文書の変更 | `test-policy.md`のE2E本数の削除、文言の禁止の範囲、`testing.md`の書き直し、matrixの更新 | Issue #2 決定事項「文書」 | `use-template.md`への1文の追加（`documentation-update-criteria.md`の「テスト分類、gate選定」） |
 | 画面とbackend | 変えない | Issue #2 範囲外 | 既存テストの本文も変えない |
