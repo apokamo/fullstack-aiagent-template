@@ -108,9 +108,10 @@ def _answer(request: httpx.Request, kind: str) -> str:
                 "references": cited,
             }
         )
-    answer: dict[str, Any] = {"input_hash": sent["input_hash"], "items": items}
-    if kind == "input_hash":
-        answer["input_hash"] = "0" * 64
+    answer: dict[str, Any] = {"items": items}
+    if kind == "echoed_input_hash":
+        # 旧契約のエコー。値が正しくても、今の schema には無い欄である。
+        answer["input_hash"] = canonical_hash(sent["input"])
     elif kind == "duplicate_item":
         answer["items"] = [items[0], *items]
     elif kind == "schema":
@@ -151,22 +152,35 @@ def _validate(judge: ResponsesJudge, output: Path) -> dict[str, Any]:
     ("kind", "status", "error_code", "failure"),
     [
         (
-            "input_hash",
+            "echoed_input_hash",
             "parser_error",
-            "judge_input_hash_mismatch",
-            {"reason": "judge_input_hash_mismatch", "item": None, "reference": None},
+            "invalid_judge_result",
+            {
+                "reason": "invalid_judge_result",
+                # `input_hash` はもう応答の欄ではないので、report では伏せる。
+                "schema_errors": [{"type": "extra_forbidden", "loc": [None]}],
+            },
         ),
         (
             "duplicate_item",
             "parser_error",
             "duplicate_id",
-            {"reason": "duplicate_id", "item": None, "reference": None},
+            {
+                "reason": "duplicate_id",
+                "item": None,
+                "reference": None,
+                "schema_errors": [],
+            },
         ),
         (
             "unquoted_answer",
             "parser_error",
             "required_evidence_missing",
-            {"reason": "required_evidence_missing", "reference": None},
+            {
+                "reason": "required_evidence_missing",
+                "reference": None,
+                "schema_errors": [],
+            },
         ),
         ("http", "provider_error", "judge_http_500", None),
     ],
@@ -193,7 +207,6 @@ def test_an_example_the_judge_could_not_grade_keeps_its_reason(
         assert entry["failure"] is None
     else:
         assert {key: entry["failure"][key] for key in failure} == failure
-        assert entry["failure"]["schema_errors"] == []
     if kind == "unquoted_answer":
         assert entry["failure"]["item"] == "turn-1-relevance"
     report = result["report"]
@@ -208,6 +221,11 @@ def test_an_example_the_judge_could_not_grade_keeps_its_reason(
     assert stat.S_IMODE((output / "diagnostics").stat().st_mode) == 0o700
     diagnostic = json.loads(saved.read_text(encoding="utf-8"))
     assert diagnostic["error_code"] == error_code
+    if kind == "echoed_input_hash":
+        # 非公開の診断には、どの欄が余分だったかが残る。
+        assert diagnostic["failure"]["schema_errors"] == [
+            {"type": "extra_forbidden", "loc": ["input_hash"]}
+        ]
     written = json.dumps(result, ensure_ascii=False)
     if kind != "http":
         # 生の応答は診断にだけ残る。

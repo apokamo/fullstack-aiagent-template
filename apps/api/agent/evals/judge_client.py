@@ -12,7 +12,6 @@ from pydantic import Field, ValidationError
 from pydantic_ai import models
 
 from apps.api.agent.evals.evidence import (
-    Digest,
     EvidenceError,
     Record,
     Usage,
@@ -54,8 +53,10 @@ Only target_turn_ids are scored; evidence of earlier turns is verified context, 
 to answer earlier questions again. verified_items are mechanical results that are already
 decided: do not grade them again, and do not fail a judge item only because of them.
 Keep item criteria separate: do not cascade one fail to other items without an independent reason.
-Echo input_hash exactly. Provide no tools, actions or alternative output format.
+Provide no tools, actions or alternative output format.
 """
+
+DIAGNOSTIC_VERSION = "judge-diagnostic-v2"
 
 
 class JudgeSettings(Record):
@@ -133,7 +134,7 @@ class JudgeSettings(Record):
                     "store": False,
                     "truncation": "disabled",
                     "max_retries": 0,
-                    "wire_policy": "predefined-references-v4",
+                    "wire_policy": "predefined-references-v5",
                 }
             ),
         )
@@ -177,7 +178,6 @@ class WireItem(Record):
 
 
 class WireResult(Record):
-    input_hash: Digest
     items: tuple[WireItem, ...]
 
 
@@ -223,10 +223,11 @@ def absent_usage(requests: int, reason: str) -> Usage:
 
 
 def parse_result(text: str, value: JudgeInput, usage: Usage) -> JudgeResult:
-    """Validate coverage, exact spans and input identity before trusting any item."""
+    """Validate coverage and exact spans before trusting any item.
+
+    The input identity is the value the app sent, never an echo from the judge.
+    """
     wire = WireResult.model_validate_json(text)
-    if wire.input_hash != canonical_hash(value):
-        raise EvidenceError("judge_input_hash_mismatch")
     unique(tuple(item.item_id for item in wire.items))
     obligations = {item.item_id: item for item in value.items}
     if set(obligations) != {item.item_id for item in wire.items}:
@@ -255,7 +256,7 @@ def parse_result(text: str, value: JudgeInput, usage: Usage) -> JudgeResult:
             )
         )
     return JudgeResult(
-        input_hash=wire.input_hash,
+        input_hash=canonical_hash(value),
         identity=value.identity,
         status="ok",
         items=tuple(parsed_items),
@@ -264,7 +265,16 @@ def parse_result(text: str, value: JudgeInput, usage: Usage) -> JudgeResult:
 
 
 def reparse_diagnostic(diagnostic: dict[str, Any]) -> dict[str, Any]:
-    """Offline analysis only. Caller publishes into a new artifact, never the old score."""
+    """Offline analysis only. Caller publishes into a new artifact, never the old score.
+
+    A v1 diagnostic was produced under the input_hash echo contract, so it is
+    refused rather than reported as a schema error under the current contract.
+    """
+    version = diagnostic.get("version")
+    if version == "judge-diagnostic-v1":
+        raise EvidenceError("legacy_judge_diagnostic")
+    if version != DIAGNOSTIC_VERSION:
+        raise EvidenceError("diagnostic_version_unsupported")
     value = JudgeInput.model_validate(diagnostic["input"])
     if diagnostic["input_hash"] != canonical_hash(value):
         raise EvidenceError("diagnostic_input_mismatch")
@@ -354,7 +364,6 @@ class ResponsesJudge:
             )
         body = canonical_bytes(
             {
-                "input_hash": canonical_hash(value),
                 "input": value.model_dump(mode="json"),
                 "references": [r.model_dump(mode="json") for r in references(value)],
             }
@@ -376,7 +385,7 @@ class ResponsesJudge:
         if self.transport is None:
             models.check_allow_model_requests()
         self.last_diagnostic = {
-            "version": "judge-diagnostic-v1",
+            "version": DIAGNOSTIC_VERSION,
             "input": value.model_dump(mode="json"),
             "input_hash": canonical_hash(value),
             "request_hash": canonical_hash(
