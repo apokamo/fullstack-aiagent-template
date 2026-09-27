@@ -106,7 +106,8 @@ cases:
 ### 4. テスト側の注釈
 
 - Vitest: テスト名（`it` / `test`の第1引数）の先頭に、空白区切りで1つ以上の`@case:<id>`を置く。
-  例: `it("@case:S11 @case:S1 本文と tool 結果を出す", ...)`（複数idの書式の例）。`describe`名には付けない
+  例: `it("@case:S11 本文と tool 結果を出す", ...)`。複数のidは`it("@case:<id1> @case:<id2> <テスト名>", ...)`と
+  並べる（初期台帳には、1つのVitestテストに複数idを付けるものは無い）。`describe`名には付けない
 - Playwright: `test(title, { tag: ["@case:A1", "@case:A4"] }, ...)`の`tag`で付ける。Playwrightはtitle中の
   `@...`もtagとして扱うが、規約は`tag` optionに統一する（検査はJSONの`tags`を読むのでどちらでも同じ結果）
 - 1つのテストが複数のケースを確かめてよい。同じテストに同じidを2回書いても1回として扱う
