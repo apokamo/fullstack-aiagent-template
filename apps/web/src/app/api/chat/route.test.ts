@@ -14,6 +14,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { POST } from "@/app/api/chat/route";
+import {
+  CHAT_GENERIC_ERROR_MESSAGE,
+  CHAT_UNREACHABLE_ERROR_MESSAGE,
+} from "@/lib/chat-profiles";
 
 /** FastAPI が実際に返しているヘッダ（実測値）。 */
 const UPSTREAM_HEADERS: Record<string, string> = {
@@ -105,7 +109,7 @@ describe("chat route handler", { tags: ["small"] }, () => {
     expect(response.headers.get("x-content-type-options")).toBe("nosniff");
   });
 
-  it("upstream に繋がらないときは 502 を返す", async () => {
+  it("@case:P10 upstream に繋がらないときは 502 と固定 body を返す", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => {
@@ -116,9 +120,12 @@ describe("chat route handler", { tags: ["small"] }, () => {
     const response = await POST(chatRequest());
 
     expect(response.status).toBe(502);
+    await expect(response.json()).resolves.toEqual({
+      error: CHAT_UNREACHABLE_ERROR_MESSAGE,
+    });
   });
 
-  it("upstream のエラーステータスを返し、相関 ID と security headers を落とさない", async () => {
+  it("@case:P10 upstream のエラーステータスを返し、相関 ID と security headers を落とさない", async () => {
     // 不正な body を送ると FastAPI は 422 を x-request-id 付きで返す。
     // 障害時こそ相関 ID が要るので、エラー経路でも転送する。
     vi.stubGlobal(
@@ -144,6 +151,9 @@ describe("chat route handler", { tags: ["small"] }, () => {
     );
     expect(response.headers.get("x-content-type-options")).toBe("nosniff");
     expect(response.headers.get("Content-Type")).toContain("application/json");
+    await expect(response.json()).resolves.toEqual({
+      error: CHAT_GENERIC_ERROR_MESSAGE,
+    });
   });
 });
 
@@ -182,7 +192,7 @@ describe("chat route handler: profile errors", { tags: ["small"] }, () => {
     return { status: response.status, error: body.error };
   }
 
-  it("未知 profile の 422 と credential 欠落の 503 は、status を保って別々の固定文言へ写す", async () => {
+  it("@case:E3 未知 profile の 422 と credential 欠落の 503 は、status を保って別々の固定文言へ写す", async () => {
     const unknown = await errorFor(problem("chat_profile_unknown", 422));
     const unavailable = await errorFor(
       problem("chat_profile_unavailable", 503),
@@ -196,7 +206,7 @@ describe("chat route handler: profile errors", { tags: ["small"] }, () => {
     ).toBe(3);
   });
 
-  it("upstream の detail / errors / request_id を body へ写さない", async () => {
+  it("@case:E4 upstream の detail / errors / request_id を body へ写さない", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => problem("chat_profile_unknown", 422)),

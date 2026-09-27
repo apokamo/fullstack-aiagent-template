@@ -7,15 +7,45 @@ cases:
     category: 状態
     description: "名称、説明、チャットへの導線が表示される"
     kinds: [small]
+  - id: H2
+    feature: home
+    category: 画面遷移
+    description: "「チャットを開く」で`/chat`に移動する"
+    kinds: [e2e]
+  - id: H3
+    feature: home
+    category: アクセシビリティ
+    description: "キーボードだけで導線に移動し、開ける"
+    kinds: [e2e]
+  - id: P1
+    feature: model-select
+    category: 状態
+    description: "一覧の取得中は選べず、「読み込み中…」が出る"
+    kinds: [small]
+  - id: P2
+    feature: model-select
+    category: 状態
+    description: "一覧が揃うと既定のprofileが選ばれ、送信できる"
+    kinds: [small]
   - id: P3
     feature: model-select
     category: APIエラー
     description: "一覧の取得に失敗すると、理由と再取得のボタンが出る"
     kinds: [small]
+  - id: P4
+    feature: model-select
+    category: 操作
+    description: "再取得して成功すると、選べる状態に戻る"
+    kinds: [small]
   - id: P5
     feature: model-select
     category: 状態
     description: "利用できない選択肢は選べず、理由が文字で出る"
+    kinds: [small]
+  - id: P6
+    feature: model-select
+    category: 状態
+    description: "利用できないprofileでは送信が止まり、理由が出て、入力した文が残る"
     kinds: [small]
   - id: P7
     feature: model-select
@@ -27,11 +57,106 @@ cases:
     category: 状態
     description: "生成中は選べない"
     kinds: [small]
+  - id: P9
+    feature: model-select
+    category: データの形
+    description: "本物のFastAPIの一覧が中継を通って届く"
+    kinds: [medium]
+  - id: P10
+    feature: model-select
+    category: APIエラー
+    description: "FastAPIが止まっている、または2xx以外のとき、中継が502や固定のbodyを返す"
+    kinds: [small, medium]
+  - id: P11
+    feature: model-select
+    category: 画面遷移
+    description: "再読み込みすると選択が既定に戻る"
+    kinds: [e2e]
+  - id: S1
+    feature: send
+    category: 操作
+    description: "送信すると、自分の発話と応答のカードが出る"
+    kinds: [e2e, small]
+  - id: S2
+    feature: send
+    category: 入力チェック
+    description: "空の文や空白だけの文は送らない"
+    kinds: [small]
+  - id: S3
+    feature: send
+    category: 状態
+    description: "生成中は入力欄が止まり、「生成中…」と出て、ボタンが停止に変わる"
+    kinds: [small]
+  - id: S4
+    feature: send
+    category: 操作
+    description: "停止ボタンで生成が止まる"
+    kinds: [e2e]
+  - id: S5
+    feature: send
+    category: 操作
+    description: "Enterキーで送信できる"
+    kinds: [small]
+  - id: S6
+    feature: send
+    category: 状態
+    description: "生成中にEnterを押しても、進行中のrunへもう1通送られない"
+    kinds: [small]
+  - id: S7
+    feature: send
+    category: 状態
+    description: "会話が空のときは案内が出て、送信すると消える"
+    kinds: [small]
+  - id: S8
+    feature: send
+    category: 状態
+    description: "考え中の表示（reasoning）が出て、開閉できる"
+    kinds: [small]
+  - id: S9
+    feature: send
+    category: 状態
+    description: "応答が流れるにつれて表示が伸び、自動で下までスクロールする"
+    kinds: [e2e]
+  - id: S10
+    feature: send
+    category: データの形
+    description: "本物のFastAPIのSSEが、中継を通ってそのまま流れる"
+    kinds: [medium]
   - id: S11
     feature: send
     category: 状態
     description: "toolの結果（`search_docs`）が表示される"
     kinds: [e2e, small]
+  - id: E1
+    feature: send-error
+    category: APIエラー
+    description: "送信に失敗すると、失敗の表示と再試行のボタンが出る"
+    kinds: [small]
+  - id: E2
+    feature: send-error
+    category: 操作
+    description: "再試行すると失敗の表示が消え、送り直せる"
+    kinds: [e2e]
+  - id: E3
+    feature: send-error
+    category: APIエラー
+    description: "未知のprofile（422）とcredentialの欠落（503）で、別々の文言が出る"
+    kinds: [small, medium]
+  - id: E4
+    feature: send-error
+    category: 秘密値の表示
+    description: "upstreamの`detail`や`request_id`が画面に出ない"
+    kinds: [small]
+  - id: E5
+    feature: send-error
+    category: APIエラー
+    description: "応答の途中で切れたとき、固定文言が出て、browserのエラー文は出ない"
+    kinds: [small]
+  - id: E6
+    feature: send-error
+    category: 操作
+    description: "承認・却下をすると、失敗の表示が消える"
+    kinds: [small]
   - id: A1
     feature: approval
     category: 状態
@@ -52,28 +177,43 @@ cases:
     category: 画面遷移
     description: "承認すると自動で再開し、承認欄が消えて結果が出る"
     kinds: [e2e]
-  - id: A7
+  - id: A5
     feature: approval
-    category: 状態
-    description: "承認待ちのあいだは送信できず、理由が出る"
-    kinds: [small]
-  - id: A9
-    feature: approval
-    category: 状態
-    description: "承認・却下のボタンは最後のassistant messageの承認待ちpartにだけ出る"
-    kinds: [small]
+    category: 画面遷移
+    description: "却下しても再開し、同じtoolをもう一度提案しない"
+    kinds: [e2e]
   - id: A6
     feature: approval
     category: データの形
     description: "承認で再開したrunは元のprofile、次の発話は選び直したprofileで送る"
     kinds: [e2e, small]
-  - id: E5
-    feature: send-error
-    category: APIエラー
-    description: "応答の途中で切れたとき、固定文言が出て、browserのエラー文は出ない"
+  - id: A7
+    feature: approval
+    category: 状態
+    description: "承認待ちのあいだは送信できず、理由が出る"
     kinds: [small]
-  - id: E6
-    feature: send-error
-    category: 操作
-    description: "承認・却下をすると、失敗の表示が消える"
+  - id: A8
+    feature: approval
+    category: 画面遷移
+    description: "承認待ちで再読み込みすると会話が消え、書き込みは実行されない"
+    kinds: [e2e]
+  - id: A9
+    feature: approval
+    category: 状態
+    description: "承認・却下のボタンは最後のassistant messageの承認待ちpartにだけ出る"
     kinds: [small]
+  - id: X1
+    feature: accessibility
+    category: アクセシビリティ
+    description: "モデル選択欄にラベルが結び付いている"
+    kinds: [small]
+  - id: X2
+    feature: accessibility
+    category: アクセシビリティ
+    description: '送信を止める理由と失敗の表示が`role="alert"`で読み上げられる'
+    kinds: [small]
+  - id: X3
+    feature: accessibility
+    category: アクセシビリティ
+    description: "キーボードだけで、モデル選択・送信・承認ができる"
+    kinds: [e2e]

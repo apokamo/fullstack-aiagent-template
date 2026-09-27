@@ -55,7 +55,7 @@ describe("chat profiles route handler", { tags: ["small"] }, () => {
     await expect(response.json()).resolves.toEqual(PAYLOAD);
   });
 
-  it("upstream に繋がらないときは 502 を返す", async () => {
+  it("@case:P10 upstream に繋がらないときは 502 を返す", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => {
@@ -69,7 +69,7 @@ describe("chat profiles route handler", { tags: ["small"] }, () => {
     expect(response.headers.get("Cache-Control")).toBe("no-store");
   });
 
-  it("非 2xx は status を保ったまま固定 body に積み替える", async () => {
+  it("@case:P10 非 2xx は status を保ったまま固定 body に積み替える", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(
