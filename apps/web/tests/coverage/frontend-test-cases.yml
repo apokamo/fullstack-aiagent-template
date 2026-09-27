@@ -67,3 +67,13 @@ cases:
     category: データの形
     description: "承認で再開したrunは元のprofile、次の発話は選び直したprofileで送る"
     kinds: [e2e, small]
+  - id: E5
+    feature: send-error
+    category: APIエラー
+    description: "応答の途中で切れたとき、固定文言が出て、browserのエラー文は出ない"
+    kinds: [small]
+  - id: E6
+    feature: send-error
+    category: 操作
+    description: "承認・却下をすると、失敗の表示が消える"
+    kinds: [small]

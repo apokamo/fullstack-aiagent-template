@@ -77,7 +77,7 @@ export type ChatSession = {
   stop: () => void;
   /** 失敗表示を消してから再試行する。 */
   retry: () => void;
-  /** 承認 / 却下の応答を送る。 */
+  /** 承認 / 却下の応答を送る。失敗の表示は先に消す。 */
   respondToApproval: ToolApprovalProps["onRespond"];
   /** 次の request が運ぶ profile を差し替える。 */
   selectProfile: (value: string) => void;
@@ -148,6 +148,17 @@ export function useChatSession({
     void regenerate();
   }, [clearError, regenerate]);
 
+  const respondToApproval = useCallback<ToolApprovalProps["onRespond"]>(
+    (response) => {
+      // addToolApprovalResponse() は error state を触らないので、先に自分で消す。
+      // AI SDK が消すのは再開の request が始まったときだけで、再開の条件を
+      // 満たさないと失敗の表示が残る。
+      clearError();
+      void addToolApprovalResponse(response);
+    },
+    [addToolApprovalResponse, clearError],
+  );
+
   return {
     messages,
     status,
@@ -159,7 +170,7 @@ export function useChatSession({
     send,
     stop,
     retry,
-    respondToApproval: addToolApprovalResponse,
+    respondToApproval,
     selectProfile,
   };
 }

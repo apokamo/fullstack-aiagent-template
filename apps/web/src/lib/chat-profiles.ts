@@ -38,6 +38,24 @@ export const CHAT_ERROR_MESSAGES: Readonly<Record<string, string>> = {
     "選択したモデルは現在利用できません。別のモデルを選んでください。",
 };
 
+/** 中継が FastAPI に届かなかったときの固定文言。 */
+export const CHAT_UNREACHABLE_ERROR_MESSAGE = "chat backend is unreachable";
+
+/**
+ * 中継が積んだ固定文言として読めない失敗に出す固定文言。
+ *
+ * stream の途中の切断や agent の `error` part は中継を通らないので、browser や
+ * agent の文言がそのまま `Error.message` に入る。**それを画面に出さない。**
+ */
+export const CHAT_UNREADABLE_ERROR_MESSAGE = "応答を受け取れませんでした。";
+
+/** 中継が `{ error }` に積む固定文言の全集合。画面はこれに含まれる文言だけを出す。 */
+const RELAY_ERROR_MESSAGES: ReadonlySet<string> = new Set([
+  ...Object.values(CHAT_ERROR_MESSAGES),
+  CHAT_GENERIC_ERROR_MESSAGE,
+  CHAT_UNREACHABLE_ERROR_MESSAGE,
+]);
+
 /** 一覧を取得できなかったときの固定文言（送信も止める）。 */
 export const PROFILE_LIST_FAILED_MESSAGE =
   "モデル一覧を取得できませんでした。再取得してください。";
@@ -154,7 +172,9 @@ export function readProblemCode(text: string): string | null {
  *
  * `ai@7` は非 2xx の応答本文をそのまま `Error.message` にするので、画面が
  * 素直に出すと JSON が見えてしまう。**読むのは `error` 1 field だけ**で、
- * 読めなければ受け取った message をそのまま返す。
+ * それが中継の既知の固定文言（`RELAY_ERROR_MESSAGES`）でなければ
+ * `CHAT_UNREADABLE_ERROR_MESSAGE` を返す。**browser や agent のエラー文を
+ * 画面に出さない** —— agent の `error` part が同じ形の JSON でも同じ扱いにする。
  *
  * @param message - `useChat` の `error.message`。
  * @returns 画面に出す 1 行。
@@ -164,13 +184,15 @@ export function describeChatError(message: string): string {
   try {
     payload = JSON.parse(message);
   } catch {
-    return message;
+    return CHAT_UNREADABLE_ERROR_MESSAGE;
   }
   if (!isRecord(payload)) {
-    return message;
+    return CHAT_UNREADABLE_ERROR_MESSAGE;
   }
   const error = payload.error;
-  return typeof error === "string" && error !== "" ? error : message;
+  return typeof error === "string" && RELAY_ERROR_MESSAGES.has(error)
+    ? error
+    : CHAT_UNREADABLE_ERROR_MESSAGE;
 }
 
 // =============================================================================

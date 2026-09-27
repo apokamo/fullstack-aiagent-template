@@ -40,6 +40,11 @@ APIのエラー応答はRFC 9457（Problem Details）互換のJSONに揃えま�
 - 中継（`apps/web/src/lib/chat-relay.ts`）は、FastAPIの失敗応答から`code`だけを読み、固定の文言に
   置き換えて返します。`detail`、`errors`、`request_id`は画面に渡しません
 - 画面は、中継が返した文言だけを表示します。対応は`apps/web/src/lib/chat-profiles.ts`にあります
+- 中継が積んだ固定文言として読めない失敗（streamの途中の切断、browserの通信エラー、agentの`error` part）は、
+  browserやagentの文言を出さず、固定文言「応答を受け取れませんでした。」を出します。`{"error": ...}`の形でも、
+  中継の既知の固定文言でなければ同じ扱いです。途中まで出た応答は残し、再試行のボタンを出します。
+  切断からの復旧や自動の再送は行いません
+- 承認または却下をすると、失敗の表示を消します
 
 ## request IDによる追跡
 

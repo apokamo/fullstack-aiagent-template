@@ -14,6 +14,7 @@
 import {
   CHAT_ERROR_MESSAGES,
   CHAT_GENERIC_ERROR_MESSAGE,
+  CHAT_UNREACHABLE_ERROR_MESSAGE,
   readProblemCode,
 } from "@/lib/chat-profiles";
 import type { createModuleLogger } from "@/lib/logger";
@@ -26,8 +27,8 @@ export function fastapiBaseUrl(): string {
 }
 
 /** 一覧が取れなかったときに画面へ出す固定文言の元になる body。 */
-const UNREACHABLE_BODY = { error: "chat backend is unreachable" };
-const UPSTREAM_ERROR_BODY = { error: "chat backend returned an error" };
+const UNREACHABLE_BODY = { error: CHAT_UNREACHABLE_ERROR_MESSAGE };
+const UPSTREAM_ERROR_BODY = { error: CHAT_GENERIC_ERROR_MESSAGE };
 
 /**
  * chat の SSE を FastAPI へ中継する。

@@ -223,7 +223,8 @@ export function ChatShell({
           {/*
             中継が積んだ固定文言を出す。`ai@7` は非 2xx の
             応答本文をそのまま `Error.message` にするので、素直に出すと JSON が
-            見える。読むのは `error` 1 field だけで、読めなければ元の message。
+            見える。読むのは `error` 1 field だけで、中継の既知の文言でなければ
+            固定文言（browser や agent のエラー文は出さない）。
           */}
           <span>送信に失敗しました: {describeChatError(error.message)}</span>
           <Button onClick={onRetry} size="sm" variant="outline">
