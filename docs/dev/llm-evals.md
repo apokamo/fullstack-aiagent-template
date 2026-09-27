@@ -99,6 +99,9 @@ baselineは`evals-evidence/baselines/<suite>/<profile>.json`にprofileごとに�
 ジャッジやrubricを変えたら、実runの採点より先に`make evals-judge-validate`で
 `apps/api/sample/evals/calibration.json`のラベルとの一致（false pass / false fail / 採点できた割合）を確かめる。
 ラベルは自分のrunの観測から作ったものへ置き換え・追加してよい。
+reportの`results`には、採点できなかった例も含めて例ごとのstatus・error_code・落ちた検査が残る。
+生の応答を含むジャッジの診断は、reportと同じrun directory（git管理外）の`diagnostics/`へ
+ownerだけが読める形で保存し、reportには載せない。
 
 ## 変更目的とIssueの完了条件
 
