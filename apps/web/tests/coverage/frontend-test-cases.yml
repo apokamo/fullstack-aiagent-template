@@ -52,6 +52,16 @@ cases:
     category: 画面遷移
     description: "承認すると自動で再開し、承認欄が消えて結果が出る"
     kinds: [e2e]
+  - id: A7
+    feature: approval
+    category: 状態
+    description: "承認待ちのあいだは送信できず、理由が出る"
+    kinds: [small]
+  - id: A9
+    feature: approval
+    category: 状態
+    description: "承認・却下のボタンは最後のassistant messageの承認待ちpartにだけ出る"
+    kinds: [small]
   - id: A6
     feature: approval
     category: データの形

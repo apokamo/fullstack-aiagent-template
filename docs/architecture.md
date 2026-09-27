@@ -83,6 +83,30 @@ sequenceDiagram
 3. FastAPIは再送を新しいrunとして記録します。承認されたtoolは実行し、却下されたtoolは却下をtoolの結果として
    agentへ返して、続きを生成します
 
+### 承認待ちのあいだの送信
+
+最後のmessageが承認待ちのtoolを持つassistant messageのあいだ、画面は送信を止めます。
+
+- 送信ボタンは押せず、Enterでも送りません。入力欄には打てて、打った文は残ります
+- 理由は固定文言「承認か却下を選んでください。」で入力欄の上に出します
+- 承認・却下のボタンは、その最後のmessageの承認待ちのtoolにだけ出します。それより前のmessageに残った
+  承認待ちには出しません
+- 承認または却下で再開のrunが終わると、送信できる状態に戻ります
+
+backendはこの停止に関与しません。判定の正本は`apps/web/src/components/chat/tool-approval.tsx`の
+`findPendingApprovalMessageId`です。
+
+### 承認待ちのあいだの再読み込み
+
+承認待ちのあいだに画面を再読み込みすると、会話は画面から消えます。クライアントは会話を保存しません。
+サーバーは会話とrunを記録しますが、記録から会話を画面へ戻す経路はありません。
+
+- 承認待ちだった書き込みtoolは実行されません
+- runの記録は`awaiting_approval`のまま残ります
+- 放棄された承認待ちと、応答を待っている承認待ちは、記録の上で区別しません
+
+### 承認後の再送のprofile
+
 承認後の再送は、承認を求めたrunと同じprofileで送ります。通常の送信と再試行は、画面で選択中のprofileを
 使います。規則の正本は`apps/web/src/lib/chat-profiles.ts`の`resolveRequestProfile`です。
 

@@ -5,7 +5,7 @@
  *
  * 骨格・一覧・transport はすべて共通（`ChatShell` / `useChatProfiles` /
  * `useChatSession`）。**サンプル固有の client state は 1 つも無い** ——
- * `onData` を渡さず、送信 guard も profile の状態だけに依存する。
+ * `onData` を渡さず、送信 guard も profile と承認待ちの 2 つの状態だけに依存する。
  */
 
 import { ChatShell } from "@/components/chat/chat-shell";
@@ -20,6 +20,7 @@ export default function SampleChatPage() {
 
   return (
     <ChatShell
+      awaitingApproval={session.awaitingApproval}
       canSubmit={profiles.canSubmit}
       emptyState={{
         /*
@@ -49,6 +50,7 @@ export default function SampleChatPage() {
       onSubmit={session.send}
       renderAssistant={(message) => (
         <SampleResponse
+          acceptsApproval={message.id === session.pendingApprovalMessageId}
           message={message}
           onToolApprovalResponse={session.respondToApproval}
         />

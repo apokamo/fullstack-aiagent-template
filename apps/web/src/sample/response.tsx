@@ -8,6 +8,12 @@
  * tool part の描画は生成物の `Tool`（`components/ai-elements/tool.tsx`）に任せ、
  * 承認 UI は共通の `ToolApproval`へ閉じ込める。AI SDK の承認 API に
  * 触るのはあちらだけで、ここは「どの part が承認待ちか」を渡すだけである。
+ *
+ * **承認・却下のボタンは承認待ちの message（`acceptsApproval`）にだけ出す。**
+ * AI SDK が承認応答で書き換えるのは最後の message だけなので、それより前に
+ * 残った承認待ちの part で押しても効かない。tool part は `dynamic-tool` も描く
+ * —— 送信を止める判定（`findPendingApprovalMessageId`）と同じ集合にしないと、
+ * 送信だけが止まって押せるボタンが無い状態になる。
  */
 
 import { isToolUIPart, type UIMessage } from "ai";
@@ -32,11 +38,14 @@ import {
 } from "@/components/chat/tool-approval";
 
 export type SampleResponseProps = {
+  /** この message が承認待ちの message か（承認・却下のボタンを出すか）。 */
+  acceptsApproval: boolean;
   message: UIMessage;
   onToolApprovalResponse: ToolApprovalProps["onRespond"];
 };
 
 export function SampleResponse({
+  acceptsApproval,
   message,
   onToolApprovalResponse,
 }: SampleResponseProps): React.ReactNode {
@@ -67,7 +76,7 @@ export function SampleResponse({
           );
         }
 
-        if (isToolUIPart(part) && part.type !== "dynamic-tool") {
+        if (isToolUIPart(part)) {
           const approvalId = pendingApprovalId(part);
 
           return (
@@ -78,16 +87,26 @@ export function SampleResponse({
                 「ツール名 + 状態ラベル」という生成物由来の文字列になる。
                 **生成物を編集せず** props で testid を足して E2E から名指せるようにする。
               */}
-              <ToolHeader
-                data-testid="tool-header"
-                state={part.state}
-                type={part.type}
-              />
+              {/* `ToolHeader` の props は tool の種類で分かれ、dynamic tool だけ名前を渡す。 */}
+              {part.type === "dynamic-tool" ? (
+                <ToolHeader
+                  data-testid="tool-header"
+                  state={part.state}
+                  toolName={part.toolName}
+                  type={part.type}
+                />
+              ) : (
+                <ToolHeader
+                  data-testid="tool-header"
+                  state={part.state}
+                  type={part.type}
+                />
+              )}
               <ToolContent>
                 {/* `input-streaming` の間は input が undefined（生成物は素通しする）。 */}
                 <ToolInput input={part.input ?? {}} />
                 <ToolOutput errorText={part.errorText} output={part.output} />
-                {approvalId ? (
+                {approvalId && acceptsApproval ? (
                   <ToolApproval
                     approvalId={approvalId}
                     onRespond={onToolApprovalResponse}

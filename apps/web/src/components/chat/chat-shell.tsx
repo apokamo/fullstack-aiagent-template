@@ -9,6 +9,10 @@
  *
  * **AI SDK にも profile 一覧にも触らない。** 送信・停止・再試行は呼ぶ側
  * （`useChatSession`）が持ち、ここは操作を渡すだけである。
+ *
+ * 送信を止める理由は 2 つある。profile が送信できない状態（`canSubmit`）と、
+ * 承認待ち（`awaitingApproval`）。どちらも送信ボタンの `disabled` で止め、
+ * 打った文を消さない。
  */
 
 import type { UIMessage } from "ai";
@@ -30,6 +34,7 @@ import {
   PromptInputTextarea,
 } from "@/components/ai-elements/prompt-input";
 import { Button } from "@/components/ui/button";
+import { APPROVAL_PENDING_MESSAGE } from "@/components/chat/tool-approval";
 import { describeChatError } from "@/lib/chat-profiles";
 
 export type ChatShellProps = {
@@ -53,9 +58,12 @@ export type ChatShellProps = {
   isGenerating: boolean;
   /** profile 由来の送信可否（生成中の停止操作は止めない）。 */
   canSubmit: boolean;
+  /** 承認待ちで送信を止める（`useChatSession` の `awaitingApproval`）。 */
+  awaitingApproval: boolean;
 };
 
 export function ChatShell({
+  awaitingApproval,
   canSubmit,
   emptyState,
   error,
@@ -79,13 +87,14 @@ export function ChatShell({
    * すれば click も Enter も form へ届かず（生成物の textarea は
    * `button[type="submit"]` の `disabled` を見てから `requestSubmit()` する。
    * 同 `:985-996`）、**入力欄の本文はそのまま残る** —— 一覧を再取得するか
-   * モデルを選び直せば、同じ文をそのまま送れる。
+   * モデルを選び直せば、同じ文をそのまま送れる。承認待ちも同じ仕組みで止め、
+   * 承認か却下で再開の run が終わればその文を送れる。
    *
    * **生成中は付けない。** そのときボタンは停止ボタン（`type="button"`）なので、
    * ここで `disabled` にすると生成を止められなくなる。生成中の追加送信は
    * textarea の `disabled` と `send()` 側の guard が止める。
    */
-  const submitDisabled = !isGenerating && !canSubmit;
+  const submitDisabled = !isGenerating && (!canSubmit || awaitingApproval);
 
   return (
     /*
@@ -192,6 +201,20 @@ export function ChatShell({
         </div>
       ) : null}
 
+      {/*
+        承認待ちの理由。失敗ではないので destructive の色は使わない。
+        入力欄の上に置き、profile の理由（`model-guard`）と場所を揃える。
+      */}
+      {awaitingApproval ? (
+        <div
+          className="rounded-md bg-muted px-3 py-2 text-foreground text-sm"
+          data-testid="approval-guard"
+          role="alert"
+        >
+          {APPROVAL_PENDING_MESSAGE}
+        </div>
+      ) : null}
+
       {error ? (
         <div
           className="flex items-center justify-between gap-3 rounded-md bg-destructive/10 px-3 py-2 text-destructive text-sm"
@@ -216,12 +239,12 @@ export function ChatShell({
            * `ready` でない、または選んだ profile が利用不可なら送らない ——
            * API 側の 503 と二重の歯止めにする。理由の表示と入力の保護は
            * 送信ボタンの `disabled`（`submitDisabled`）が持つので、ここは
-           * form へ到達した場合の最後の歯止めだけを残す。
+           * form へ到達した場合の最後の歯止めだけを残す。承認待ちも同じ。
            *
            * 生成中の追加送信と空文の除外は `onSubmit`（`useChatSession.send`）が
            * 持つ —— そちらが唯一の送信経路である。
            */
-          if (!canSubmit) {
+          if (!canSubmit || awaitingApproval) {
             return;
           }
           // Promise を返しておく（PromptInput は添付の後始末を await する）。
