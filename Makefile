@@ -383,6 +383,8 @@ _verify-frontend-lane:
 	@npm run typecheck:fe
 	@echo "→ Running vitest Small tests..."
 	@npm run test:fe:small
+	@echo "→ Checking the frontend test-case ledger..."
+	@uv run python -m scripts.testing.frontend_test_cases
 	@echo "✅ Frontend verification checks passed!"
 
 verify-docs:

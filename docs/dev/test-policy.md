@@ -24,6 +24,9 @@
 markerの定義はrootの`conftest.py`と`pyproject.toml`が正本です。層のmarkerと専用のmarker（`llm`、
 `on_schema_change`など）を同じテストに重ねません。
 
+webのテストの分類（Small / Medium / LargeとE2E）とテストケースの台帳は
+[フロントエンドテスト](../reference/frontend/testing.md)を正本とします。
+
 ## 層の選び方
 
 - まずSmallで書けるかを考えます。DBやfilesystemを使わないと確かめられない振る舞いだけをMediumにします
@@ -46,7 +49,8 @@ markerの定義はrootの`conftest.py`と`pyproject.toml`が正本です。層�
 ## 書いてはいけないテスト
 
 - 値、文言、件数、model名、ファイルの一覧をテストに写して二重に固定するテスト。値の正本はコードに
-  1つだけ置きます
+  1つだけ置きます。この禁止は設定ファイルや定数の値を写すテストが対象で、UIの表示を確かめるテストは
+  対象外です
 - 配線やファイルの配置を確かめるだけのメタテスト。ただし依存の向きのように、壊れても振る舞いのテストで
   気付けない構造の規則は例外とします
 - coverageの閾値を満たすためだけのテスト
@@ -60,8 +64,8 @@ markerの定義はrootの`conftest.py`と`pyproject.toml`が正本です。層�
 |---|---|
 | backend（`apps/api/tests/`と`scripts/tests/`） | 200〜250件 |
 | web（Vitest） | 約50件 |
-| E2E（Playwright） | 2〜3本 |
 
+E2Eの本数は[テストケースの台帳](../reference/frontend/testing.md#テストケースの台帳)のケースから決まります。
 目安を超えそうなときは、同じ分岐を確かめる複数のテストを代表の1件に寄せます。
 
 ## coverage

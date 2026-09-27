@@ -62,16 +62,20 @@ function cards(page: Page) {
   return page.getByTestId("sample-response");
 }
 
-test("/chat が開き、検索の tool 結果と結論が出る", async ({ page }) => {
-  const response = await page.goto("/chat");
-  expect(response?.status()).toBe(200);
-  await send(page, SEARCH_PROMPT);
+test(
+  "/chat が開き、検索の tool 結果と結論が出る",
+  { tag: ["@case:S11"] },
+  async ({ page }) => {
+    const response = await page.goto("/chat");
+    expect(response?.status()).toBe(200);
+    await send(page, SEARCH_PROMPT);
 
-  await expect(page.getByText(SEARCH_ANSWER)).toBeVisible();
-  await expect(cards(page)).toHaveCount(1);
-  // 呼ばれた tool が画面に出る（承認不要なので止まらない）。
-  await expect(page.getByTestId("tool-header")).toContainText("search_docs");
-});
+    await expect(page.getByText(SEARCH_ANSWER)).toBeVisible();
+    await expect(cards(page)).toHaveCount(1);
+    // 呼ばれた tool が画面に出る（承認不要なので止まらない）。
+    await expect(page.getByTestId("tool-header")).toContainText("search_docs");
+  },
+);
 
 test("一時メモを却下すると再開して書き留めなかった旨が出る", async ({
   page,
@@ -88,45 +92,47 @@ test("一時メモを却下すると再開して書き留めなかった旨が�
   await expect(page.getByRole("main").getByText(SAVED_TEXT)).toHaveCount(0);
 });
 
-test("一時メモは承認前に止まり、承認すると元の run の profile で再開し、次の user turn は選び直した profile で送る", async ({
-  page,
-}) => {
-  /*
-   * **POST を丸ごと mock しない。** 中継と FastAPI の本物の境界を通し、送られた
-   * profile だけを観測する。
-   */
-  const sent: string[] = [];
-  await page.route("**/api/chat", async (route) => {
-    const body = route.request().postDataJSON() as { profile?: string };
-    sent.push(body?.profile ?? "<none>");
-    await route.continue();
-  });
+test(
+  "一時メモは承認前に止まり、承認すると元の run の profile で再開し、次の user turn は選び直した profile で送る",
+  { tag: ["@case:A1", "@case:A4", "@case:A6"] },
+  async ({ page }) => {
+    /*
+     * **POST を丸ごと mock しない。** 中継と FastAPI の本物の境界を通し、送られた
+     * profile だけを観測する。
+     */
+    const sent: string[] = [];
+    await page.route("**/api/chat", async (route) => {
+      const body = route.request().postDataJSON() as { profile?: string };
+      sent.push(body?.profile ?? "<none>");
+      await route.continue();
+    });
 
-  await page.goto("/chat");
-  // 起動 profile は `playwright.config.ts` が DS4 に pin している。
-  await send(page, NOTE_PROMPT);
+    await page.goto("/chat");
+    // 起動 profile は `playwright.config.ts` が DS4 に pin している。
+    await send(page, NOTE_PROMPT);
 
-  const approval = page.getByTestId("tool-approval");
-  await expect(approval).toBeVisible();
-  await expect(page.getByTestId("tool-header")).toContainText("save_note");
-  // モデルが渡した引数が承認する前に読める（何を承認するのかが分かる）。
-  await expect(cards(page)).toContainText(NOTE_TITLE);
-  await expect(cards(page)).toContainText(NOTE_BODY);
-  // **承認前に実行されていない。** 実行結果の文言はまだどこにも無い。
-  await expect(page.getByRole("main").getByText(SAVED_TEXT)).toHaveCount(0);
+    const approval = page.getByTestId("tool-approval");
+    await expect(approval).toBeVisible();
+    await expect(page.getByTestId("tool-header")).toContainText("save_note");
+    // モデルが渡した引数が承認する前に読める（何を承認するのかが分かる）。
+    await expect(cards(page)).toContainText(NOTE_TITLE);
+    await expect(cards(page)).toContainText(NOTE_BODY);
+    // **承認前に実行されていない。** 実行結果の文言はまだどこにも無い。
+    await expect(page.getByRole("main").getByText(SAVED_TEXT)).toHaveCount(0);
 
-  // 承認待ちのあいだに画面の選択を変える（生成中ではないので選べる）。
-  await choose(page, LUNA_LABEL);
-  await page.getByRole("button", { name: "承認" }).click();
+    // 承認待ちのあいだに画面の選択を変える（生成中ではないので選べる）。
+    await choose(page, LUNA_LABEL);
+    await page.getByRole("button", { name: "承認" }).click();
 
-  // 承認は 2 本目の run を自動で起こす（`sendAutomaticallyWhen`）。
-  await expect(page.getByText(SAVED_TEXT)).toBeVisible();
-  await expect(approval).toHaveCount(0);
-  // 1 本目と承認再開の 2 本目は同じ profile（元の run を引き継ぐ）。
-  expect(sent).toEqual([DS4, DS4]);
+    // 承認は 2 本目の run を自動で起こす（`sendAutomaticallyWhen`）。
+    await expect(page.getByText(SAVED_TEXT)).toBeVisible();
+    await expect(approval).toHaveCount(0);
+    // 1 本目と承認再開の 2 本目は同じ profile（元の run を引き継ぐ）。
+    expect(sent).toEqual([DS4, DS4]);
 
-  // 続く user turn は現在選択している profile で送られ、応答も出る。
-  await send(page, NEXT_PROMPT);
-  await expect(page.getByText(NEXT_ANSWER)).toBeVisible();
-  expect(sent).toEqual([DS4, DS4, LUNA]);
-});
+    // 続く user turn は現在選択している profile で送られ、応答も出る。
+    await send(page, NEXT_PROMPT);
+    await expect(page.getByText(NEXT_ANSWER)).toBeVisible();
+    expect(sent).toEqual([DS4, DS4, LUNA]);
+  },
+);

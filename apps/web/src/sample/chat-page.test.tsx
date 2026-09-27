@@ -128,7 +128,7 @@ describe("sample chat page", { tags: ["small"] }, () => {
     expect(screen.queryByTestId("model-guard")).not.toBeInTheDocument();
   });
 
-  it("本文と tool 結果を出す", async () => {
+  it("@case:S11 本文と tool 結果を出す", async () => {
     mockChat({ messages: [searchedMessage()] });
     render(<ChatPage />);
 
@@ -138,7 +138,7 @@ describe("sample chat page", { tags: ["small"] }, () => {
     expect(screen.getByTestId("sample-response")).toBeInTheDocument();
   });
 
-  it("承認待ちの tool に出した承認は approved: true を 1 回だけ送る", async () => {
+  it("@case:A2 承認待ちの tool に出した承認は approved: true を 1 回だけ送る", async () => {
     const addToolApprovalResponse = vi.fn();
     mockChat({ messages: [approvalPendingMessage()], addToolApprovalResponse });
     render(<ChatPage />);
@@ -152,7 +152,7 @@ describe("sample chat page", { tags: ["small"] }, () => {
     });
   });
 
-  it("却下は approved: false を 1 回だけ送る", async () => {
+  it("@case:A3 却下は approved: false を 1 回だけ送る", async () => {
     const addToolApprovalResponse = vi.fn();
     mockChat({ messages: [approvalPendingMessage()], addToolApprovalResponse });
     render(<ChatPage />);

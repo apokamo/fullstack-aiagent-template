@@ -62,7 +62,7 @@ describe("model select", { tags: ["small"] }, () => {
     expect(screen.queryByTestId("model-list-error")).toBeNull();
   });
 
-  it("一覧の取得中・取得失敗・生成中は選べない", () => {
+  it("@case:P8 一覧の取得中・取得失敗・生成中は選べない", () => {
     for (const overrides of [
       { status: "loading", value: "" },
       { status: "failed", value: "" },
@@ -84,7 +84,7 @@ describe("model select", { tags: ["small"] }, () => {
     }
   });
 
-  it("一覧取得に失敗したら理由と再取得導線を出す", async () => {
+  it("@case:P3 一覧取得に失敗したら理由と再取得導線を出す", async () => {
     const onRetry = vi.fn();
     renderSelect({ status: "failed", value: "", onRetry });
 
@@ -96,7 +96,7 @@ describe("model select", { tags: ["small"] }, () => {
     expect(onRetry).toHaveBeenCalledTimes(1);
   });
 
-  it("利用不可の選択肢は選べず、理由を文字で添える", async () => {
+  it("@case:P5 利用不可の選択肢は選べず、理由を文字で添える", async () => {
     renderSelect({ profiles: UNAVAILABLE });
 
     await userEvent.click(screen.getByTestId("model-select"));
@@ -109,7 +109,7 @@ describe("model select", { tags: ["small"] }, () => {
     );
   });
 
-  it("選べる選択肢を選ぶと呼び出し側へ id を渡す", async () => {
+  it("@case:P7 選べる選択肢を選ぶと呼び出し側へ id を渡す", async () => {
     const onValueChange = vi.fn();
     renderSelect({ onValueChange });
 

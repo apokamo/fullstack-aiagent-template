@@ -6,15 +6,26 @@ import { defineConfig, devices } from "@playwright/test";
  *   - dev 用 3000 と衝突しない専用ポート（既定 3100、`PLAYWRIGHT_PORT` で上書き可）で起動する。
  * 通常の inner-loop（`npx playwright test` 直叩き）は 3000 + reuse で高速に回す。
  *
- * **API も一緒に起こす**。smoke は fake モデル
+ * **API も一緒に起こす**。E2E と Medium は fake モデル
  * （`AGENT_MODEL_MODE=fake`）で回すので、実 LLM も compose の api も要らない。
  *
+ * project は置き場所で分ける。`e2e`（`tests/e2e/ui/`、実 browser）と `medium`
+ * （`tests/e2e/request/`、`request` fixture で UI を通さない）。種類の判定は
+ * テストケース台帳の突き合わせ（`scripts/testing/frontend_test_cases.py`）が
+ * この project 名から導く。
+ *
  * 実行経路は **`make test-e2e` だけ**。通常 gate（`check-all` を含む）の対象外である。
+ *
+ * **一覧の収集（`--list`）だけは env を要求しない。** `--list` はテストも server も
+ * 実行しないので、下の env 検査を省き `webServer` も渡さない。台帳の突き合わせが
+ * DB の URL を渡さずに収集できるようにするためで、テストを実行する経路の検査は
+ * 変わらない。
  *
  * **backend の ASGI 入口は Make の `APP_ASGI_APP` を環境変数で受け取る** —— 起動
  * file 名を web 側にも書くと、片方だけ直った状態ができる。
  */
 const IS_GATE = !!process.env.PLAYWRIGHT_GATE;
+const IS_LIST = process.argv.includes("--list");
 
 /**
  * API の ASGI 入口（root の `Makefile` の `APP_ASGI_APP`）。
@@ -23,7 +34,7 @@ const IS_GATE = !!process.env.PLAYWRIGHT_GATE;
  * `E2E_DATABASE_URL` と同じく `make test-e2e` 経由を前提にする。
  */
 const APP_ASGI_APP = process.env.APP_ASGI_APP;
-if (!APP_ASGI_APP) {
+if (!APP_ASGI_APP && !IS_LIST) {
   throw new Error(
     "APP_ASGI_APP が未設定です。`make test-e2e` から実行してください" +
       "（起動する ASGI 入口の正本は root の Makefile です）。",
@@ -50,7 +61,7 @@ const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? `http://127.0.0.1:${PORT}`;
  * 与える行為なので、明示的な選択として扱う）。
  */
 const e2eDatabaseUrl = process.env.E2E_DATABASE_URL;
-if (!e2eDatabaseUrl) {
+if (!e2eDatabaseUrl && !IS_LIST) {
   throw new Error(
     "E2E_DATABASE_URL が未設定です。`make test-e2e` から実行してください" +
       "（直に起動すると API が app_dev に繋がります）。",
@@ -69,7 +80,6 @@ const API_PORT = process.env.PLAYWRIGHT_API_PORT ?? "8100";
 const API_BASE_URL = `http://127.0.0.1:${API_PORT}`;
 
 export default defineConfig({
-  testDir: "./tests/e2e",
   outputDir: "test-results",
   /*
    * 既定の 30 秒では、初回の dev server compile を含む往復が収まらないことがある。
@@ -91,70 +101,78 @@ export default defineConfig({
   },
   projects: [
     {
-      name: "chromium",
+      name: "e2e",
+      testDir: "./tests/e2e/ui",
       use: {
         ...devices["Desktop Chrome"],
       },
     },
-  ],
-  webServer: [
     {
-      // fake モデルの API。`ENVIRONMENT=local` は fake の allowlist と揃える
-      // （`apps/api/core/config.py` の `FAKE_MODEL_ALLOWED_ENVIRONMENTS`）。
-      command: `uv run uvicorn ${APP_ASGI_APP} --port ${API_PORT}`,
-      // readiness は `/health/live`（DB を見ない契約。`apps/api/application.py`）。
-      url: `${API_BASE_URL}/health/live`,
-      env: {
-        DATABASE_URL: e2eDatabaseUrl,
-        AGENT_MODEL_MODE: "fake",
-        ENVIRONMENT: "local",
-        // fake モデルでも `Settings` は構築されるので `LLM_PROFILE` は必須。
-        // pin しないと、operator の secrets/api.env に別の provider profile が
-        // 設定されている場合、対応する key が無い環境で E2E が起動失敗する。
-        // `make test-e2e` 経由では Makefile の pin が同じ値を先に入れるが、
-        // `npx playwright test` を直接叩く経路には効かないので両方に置く。
-        LLM_PROFILE: "ds4-deepseek-v4-flash-chat",
-        /*
-         * **実 provider へ接続しない fake プロセス専用の非秘密値**。
-         *
-         * 画面のモデル選択は request 単位で profile を運ぶが、可用性判定と
-         * 503 は `os.environ` の credential を見る（製品側の判定は 1 行も
-         * 緩めない）。この値が無いと、operator の OpenAI key が無い環境で
-         * Luna が `available: false` になり POST も 503 になるので、
-         * DS4 → Luna → DS4 の切替を**本物の API 境界**で確かめられない。
-         *
-         * `AGENT_MODEL_MODE=fake` なのでどちらの profile でも `FunctionModel` が
-         * 返り、`AsyncOpenAI` は 1 個も作られない。`load_api_env()` は既存 OS env を
-         * 上書きしないので、この値が `secrets/api.env` の実キーより優先される ——
-         * **E2E は operator の credential から独立し、実キーが E2E プロセスへ入らない。**
-         *
-         * registry の placeholder（`unused`）と別の値でなければ credential 判定を
-         * 通らない。実キーらしい値（`sk-` 始まり）にもしないこと。
-         */
-        OPENAI_API_KEY: "e2e-fake-openai-key",
-      },
-      reuseExistingServer: !IS_GATE,
-      stdout: "pipe",
-      cwd: "../..",
-      timeout: 120_000,
-    },
-    {
-      // gate: この worktree のアプリを専用ポートで新規起動する（reuse 禁止で衝突回避）。
-      // inner-loop: 3000 で起動し、既存 server があれば reuse する。
-      command: "npm run web:dev",
-      url: BASE_URL,
-      reuseExistingServer: !IS_GATE,
-      stdout: "pipe",
-      cwd: "../..",
-      // PORT を webServer に伝播し、next dev が BASE_URL と同じポートで待ち受ける。
-      // FASTAPI_BASE_URL は上の fake API に向ける（既定の 8000 = compose の api だと
-      // **実モデルに繋がったまま緑になる**）。
-      env: {
-        PORT,
-        FASTAPI_BASE_URL: API_BASE_URL,
-      },
-      // 初回 next dev のコールドコンパイルを考慮して既定 60s から拡張する。
-      timeout: 120_000,
+      // `request` fixture だけを使う（browser を起動しない）。
+      name: "medium",
+      testDir: "./tests/e2e/request",
     },
   ],
+  webServer: IS_LIST
+    ? undefined
+    : [
+        {
+          // fake モデルの API。`ENVIRONMENT=local` は fake の allowlist と揃える
+          // （`apps/api/core/config.py` の `FAKE_MODEL_ALLOWED_ENVIRONMENTS`）。
+          command: `uv run uvicorn ${APP_ASGI_APP} --port ${API_PORT}`,
+          // readiness は `/health/live`（DB を見ない契約。`apps/api/application.py`）。
+          url: `${API_BASE_URL}/health/live`,
+          env: {
+            DATABASE_URL: e2eDatabaseUrl,
+            AGENT_MODEL_MODE: "fake",
+            ENVIRONMENT: "local",
+            // fake モデルでも `Settings` は構築されるので `LLM_PROFILE` は必須。
+            // pin しないと、operator の secrets/api.env に別の provider profile が
+            // 設定されている場合、対応する key が無い環境で E2E が起動失敗する。
+            // `make test-e2e` 経由では Makefile の pin が同じ値を先に入れるが、
+            // `npx playwright test` を直接叩く経路には効かないので両方に置く。
+            LLM_PROFILE: "ds4-deepseek-v4-flash-chat",
+            /*
+             * **実 provider へ接続しない fake プロセス専用の非秘密値**。
+             *
+             * 画面のモデル選択は request 単位で profile を運ぶが、可用性判定と
+             * 503 は `os.environ` の credential を見る（製品側の判定は 1 行も
+             * 緩めない）。この値が無いと、operator の OpenAI key が無い環境で
+             * Luna が `available: false` になり POST も 503 になるので、
+             * DS4 → Luna → DS4 の切替を**本物の API 境界**で確かめられない。
+             *
+             * `AGENT_MODEL_MODE=fake` なのでどちらの profile でも `FunctionModel` が
+             * 返り、`AsyncOpenAI` は 1 個も作られない。`load_api_env()` は既存 OS env を
+             * 上書きしないので、この値が `secrets/api.env` の実キーより優先される ——
+             * **E2E は operator の credential から独立し、実キーが E2E プロセスへ入らない。**
+             *
+             * registry の placeholder（`unused`）と別の値でなければ credential 判定を
+             * 通らない。実キーらしい値（`sk-` 始まり）にもしないこと。
+             */
+            OPENAI_API_KEY: "e2e-fake-openai-key",
+          },
+          reuseExistingServer: !IS_GATE,
+          stdout: "pipe",
+          cwd: "../..",
+          timeout: 120_000,
+        },
+        {
+          // gate: この worktree のアプリを専用ポートで新規起動する（reuse 禁止で衝突回避）。
+          // inner-loop: 3000 で起動し、既存 server があれば reuse する。
+          command: "npm run web:dev",
+          url: BASE_URL,
+          reuseExistingServer: !IS_GATE,
+          stdout: "pipe",
+          cwd: "../..",
+          // PORT を webServer に伝播し、next dev が BASE_URL と同じポートで待ち受ける。
+          // FASTAPI_BASE_URL は上の fake API に向ける（既定の 8000 = compose の api だと
+          // **実モデルに繋がったまま緑になる**）。
+          env: {
+            PORT,
+            FASTAPI_BASE_URL: API_BASE_URL,
+          },
+          // 初回 next dev のコールドコンパイルを考慮して既定 60s から拡張する。
+          timeout: 120_000,
+        },
+      ],
 });

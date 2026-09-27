@@ -9,11 +9,11 @@
 |---|---|---|---|---|
 | Backend verify | `make verify-backend` | lint、format、型、Small・Mediumのテスト | テスト用 | 不要 |
 | Backend gate | `make gate-backend` | lint、format、型、決定的なテストすべて、coverage | テスト用 | 不要 |
-| Frontend verify | `make verify-frontend` | Prettier、ESLint、TypeScript、Vitest（small） | 不要 | 不要 |
+| Frontend verify | `make verify-frontend` | Prettier、ESLint、TypeScript、Vitest（small）、テストケース台帳の突き合わせ | 不要 | 不要 |
 | Documentation | `make verify-docs` | linkとanchor、skill、workflow schema、markdownlint | 不要 | 不要 |
 | Schema | `make test-on-schema-change` | 空のDBへのmigrationと、ORMとの差分 | 使い捨て | 不要 |
 | Full stack | `make check-all` | Backend gate、Schema、Frontend verify、Documentation | テスト用 | 不要 |
-| Fake model E2E | `make test-e2e` | fake modelでのbrowserの流れ | テスト用 | 不要 |
+| Fake model E2E | `make test-e2e` | fake modelでのPlaywrightのMedium（`apps/web/tests/e2e/request/`）とE2E（`apps/web/tests/e2e/ui/`） | テスト用 | 不要 |
 | Real LLM | `LLM_PROFILE=<profile> make test-llm` | providerとの接続と、送るrequestの形 | 不要 | 必要 |
 | Eval | `LLM_PROFILE=<profile> make evals` | eval suiteの実行と採点 | 不要 | 必要 |
 | Eval（保存と再採点） | `make evals-observe`、`make evals-score SCORE_ARGS="--observations <dir>"` | 観測の保存と、生成しない採点 | 不要 | 必要 |
