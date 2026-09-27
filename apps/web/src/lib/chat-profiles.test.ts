@@ -17,7 +17,11 @@ import { DefaultChatTransport, type UIMessage } from "ai";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  CHAT_ERROR_MESSAGES,
+  CHAT_GENERIC_ERROR_MESSAGE,
   CHAT_PROFILE_UNKNOWN_CODE,
+  CHAT_UNREACHABLE_ERROR_MESSAGE,
+  CHAT_UNREADABLE_ERROR_MESSAGE,
   createChatProfileChannel,
   createPrepareSendMessagesRequest,
   describeChatError,
@@ -227,13 +231,54 @@ describe("readProblemCode / describeChatError", { tags: ["small"] }, () => {
     expect(readProblemCode(JSON.stringify({ code: 42 }))).toBeNull();
   });
 
-  it("中継が積んだ固定文言を取り出し、JSON でない message はそのまま出す", () => {
+  it("中継が積んだ固定文言を取り出し、JSON でない message は固定文言にする", () => {
     const message = JSON.stringify({
-      error: "選択したモデルは利用できません。",
+      error: "選択したモデルは現在利用できません。別のモデルを選んでください。",
     });
 
-    expect(describeChatError(message)).toBe("選択したモデルは利用できません。");
-    expect(describeChatError("Failed to fetch")).toBe("Failed to fetch");
+    expect(describeChatError(message)).toBe(
+      "選択したモデルは現在利用できません。別のモデルを選んでください。",
+    );
+    expect(describeChatError("Failed to fetch")).toBe(
+      CHAT_UNREADABLE_ERROR_MESSAGE,
+    );
+    expect(describeChatError("network error")).toBe(
+      CHAT_UNREADABLE_ERROR_MESSAGE,
+    );
+  });
+
+  it("error を読めない JSON は固定文言にする", () => {
+    const unreadable = [
+      "{}",
+      JSON.stringify({ error: "" }),
+      JSON.stringify({ error: 42 }),
+      "[1]",
+      "null",
+      JSON.stringify("network error"),
+    ];
+
+    for (const message of unreadable) {
+      expect(describeChatError(message)).toBe(CHAT_UNREADABLE_ERROR_MESSAGE);
+    }
+  });
+
+  it("中継の既知の文言でない error は固定文言にする", () => {
+    const message = JSON.stringify({ error: "credential=example-secret" });
+
+    expect(describeChatError(message)).toBe(CHAT_UNREADABLE_ERROR_MESSAGE);
+  });
+
+  it("中継が積む固定文言はすべてそのまま出す", () => {
+    const relayed = [
+      ...Object.values(CHAT_ERROR_MESSAGES),
+      CHAT_GENERIC_ERROR_MESSAGE,
+      CHAT_UNREACHABLE_ERROR_MESSAGE,
+    ];
+
+    expect(relayed).toHaveLength(4);
+    for (const error of relayed) {
+      expect(describeChatError(JSON.stringify({ error }))).toBe(error);
+    }
   });
 });
 

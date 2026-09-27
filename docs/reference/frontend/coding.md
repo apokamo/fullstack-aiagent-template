@@ -39,6 +39,7 @@
   扱います。画面のcomponentはAI SDKのAPIを直接呼びません
 - 承認の操作は`src/components/chat/tool-approval.tsx`が`addToolApprovalResponse`を呼びます。承認後の再送は
   `sendAutomaticallyWhen`が行うので、画面側で再送しません
+- 承認・却下の応答は`useChatSession`の`respondToApproval`が失敗の表示を消してから送ります
 - 承認待ちの判定は`src/components/chat/tool-approval.tsx`の`findPendingApprovalMessageId`が正本です。
   送信の停止は`ChatShell`の`awaitingApproval`が行い、承認・却下のボタンは`useChatSession`の
   `pendingApprovalMessageId`と一致するmessageにだけ出します

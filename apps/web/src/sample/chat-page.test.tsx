@@ -1,13 +1,15 @@
 /**
  * サンプルエージェントの画面の配線。
  *
- * 固定するのは 3 つ。
+ * 固定するのは 4 つ。
  *
  * 1. **描くのは本文・tool 結果・承認 / 却下**である。
  * 2. **承認 UI は共通の `ToolApproval` へ閉じ込める**。承認・却下の
  *    どちらも `addToolApprovalResponse` を 1 回だけ呼ぶ。
  * 3. **送信 guard は profile の状態と承認待ちだけに依存する**。承認・却下の
  *    ボタンは最後の assistant message の承認待ち part にだけ出る。
+ * 4. **失敗の表示は中継の固定文言か 1 つの固定文言だけを出し**、承認・却下で
+ *    消える。browser や agent のエラー文は画面に出さない。
  *
  * `useChat` は差し替える。ここで見たいのは画面の配線であって、ストリーミング
  * 自体（Route Handler 側で固定済み）ではない。
@@ -17,10 +19,12 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { UseChatHelpers } from "@ai-sdk/react";
 import type { UIMessage } from "ai";
+import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import ChatPage from "./chat-page";
 import { metadata } from "@/app/layout";
+import { CHAT_UNREADABLE_ERROR_MESSAGE } from "@/lib/chat-profiles";
 
 const useChatMock = vi.fn();
 
@@ -129,6 +133,39 @@ function approvalSettledMessage(
       },
     ],
   } as unknown as UIMessage;
+}
+
+/** 失敗の表示（承認待ちの理由も `role="alert"` なので、文言で選ぶ）。 */
+function sendErrorAlert(): HTMLElement | undefined {
+  return screen
+    .queryAllByRole("alert")
+    .find((alert) => alert.textContent?.includes("送信に失敗しました"));
+}
+
+/**
+ * 承認待ちの直後に切れた状態。`clearError` が `error` を消すので、`useChat` の
+ * 差し替えの中で `useState` を持つ（`useChatMock` は render の中で呼ばれる）。
+ */
+function mockErrorAfterApprovalRequest(
+  addToolApprovalResponse: ReturnType<typeof vi.fn>,
+  clearError: ReturnType<typeof vi.fn>,
+): void {
+  useChatMock.mockImplementation(() => {
+    const [error, setError] = useState<Error | undefined>(
+      () => new TypeError("network error"),
+    );
+    clearError.mockImplementation(() => setError(undefined));
+    return {
+      messages: [approvalPendingMessage()],
+      sendMessage: vi.fn(),
+      regenerate: vi.fn(),
+      clearError,
+      status: error ? "error" : "ready",
+      stop: vi.fn(),
+      error,
+      addToolApprovalResponse,
+    };
+  });
 }
 
 function userMessage(id: string, text: string): UIMessage {
@@ -388,6 +425,110 @@ describe("sample chat page", { tags: ["small"] }, () => {
     expect(addToolApprovalResponse).toHaveBeenCalledTimes(1);
     expect(addToolApprovalResponse).toHaveBeenCalledWith({
       id: "approval-dyn",
+      approved: false,
+    });
+  });
+
+  it("@case:E5 応答の途中で切れたとき、固定文言と再試行のボタンを出し、browser のエラー文を出さず、途中までの応答を残す", async () => {
+    const clearError = vi.fn();
+    const regenerate = vi.fn();
+    mockChat({
+      messages: [
+        userMessage("u-1", "テストのtierを検索して"),
+        textMessage("a-1", "途中まで"),
+      ],
+      status: "error",
+      error: new TypeError("network error"),
+      clearError,
+      regenerate,
+    });
+    render(<ChatPage />);
+
+    await vi.waitFor(() => expect(sendErrorAlert()).toBeDefined());
+    expect(sendErrorAlert()).toHaveTextContent(
+      `送信に失敗しました: ${CHAT_UNREADABLE_ERROR_MESSAGE}`,
+    );
+    expect(screen.queryByText(/network error/)).not.toBeInTheDocument();
+    expect(screen.getByText("途中まで")).toBeInTheDocument();
+
+    await userEvent.click(
+      within(sendErrorAlert()!).getByRole("button", { name: "再試行" }),
+    );
+
+    expect(clearError).toHaveBeenCalledTimes(1);
+    expect(regenerate).toHaveBeenCalledTimes(1);
+  });
+
+  it("中継が積んだ固定文言はそのまま出す", async () => {
+    mockChat({
+      status: "error",
+      error: new Error(
+        JSON.stringify({ error: "chat backend is unreachable" }),
+      ),
+    });
+    render(<ChatPage />);
+
+    await vi.waitFor(() => expect(sendErrorAlert()).toBeDefined());
+    expect(sendErrorAlert()).toHaveTextContent(
+      "送信に失敗しました: chat backend is unreachable",
+    );
+    expect(sendErrorAlert()).not.toHaveTextContent(
+      CHAT_UNREADABLE_ERROR_MESSAGE,
+    );
+  });
+
+  it("@case:E5 中継の文言でない JSON の error は画面に出さない", async () => {
+    mockChat({
+      status: "error",
+      error: new Error(JSON.stringify({ error: "credential=example-secret" })),
+    });
+    render(<ChatPage />);
+
+    await vi.waitFor(() => expect(sendErrorAlert()).toBeDefined());
+    expect(sendErrorAlert()).toHaveTextContent(
+      `送信に失敗しました: ${CHAT_UNREADABLE_ERROR_MESSAGE}`,
+    );
+    expect(
+      screen.queryByText(/credential=example-secret/),
+    ).not.toBeInTheDocument();
+  });
+
+  it("@case:E6 承認すると失敗の表示が消える", async () => {
+    const addToolApprovalResponse = vi.fn();
+    const clearError = vi.fn();
+    mockErrorAfterApprovalRequest(addToolApprovalResponse, clearError);
+    render(<ChatPage />);
+
+    await vi.waitFor(() => expect(sendErrorAlert()).toBeDefined());
+
+    await userEvent.click(await screen.findByRole("button", { name: "承認" }));
+
+    await vi.waitFor(() => expect(sendErrorAlert()).toBeUndefined());
+    expect(addToolApprovalResponse).toHaveBeenCalledTimes(1);
+    expect(addToolApprovalResponse).toHaveBeenCalledWith({
+      id: "approval-2",
+      approved: true,
+    });
+    expect(clearError).toHaveBeenCalled();
+    expect(clearError.mock.invocationCallOrder[0]).toBeLessThan(
+      addToolApprovalResponse.mock.invocationCallOrder[0],
+    );
+  });
+
+  it("@case:E6 却下すると失敗の表示が消える", async () => {
+    const addToolApprovalResponse = vi.fn();
+    const clearError = vi.fn();
+    mockErrorAfterApprovalRequest(addToolApprovalResponse, clearError);
+    render(<ChatPage />);
+
+    await vi.waitFor(() => expect(sendErrorAlert()).toBeDefined());
+
+    await userEvent.click(await screen.findByRole("button", { name: "却下" }));
+
+    await vi.waitFor(() => expect(sendErrorAlert()).toBeUndefined());
+    expect(addToolApprovalResponse).toHaveBeenCalledTimes(1);
+    expect(addToolApprovalResponse).toHaveBeenCalledWith({
+      id: "approval-2",
       approved: false,
     });
   });
