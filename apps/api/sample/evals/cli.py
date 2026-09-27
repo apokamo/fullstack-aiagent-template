@@ -20,6 +20,7 @@ import asyncio
 from datetime import UTC, datetime
 import json
 from pathlib import Path
+import re
 import sys
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -45,7 +46,12 @@ from apps.api.agent.evals.evidence import (
     canonical_hash,
 )
 from apps.api.agent.evals.grading import CaseContract, JudgeResult, MechanicalResult
-from apps.api.agent.evals.judge_client import JudgeSettings, ResponsesJudge
+from apps.api.agent.evals.judge_client import (
+    JudgeSettings,
+    ResponsesJudge,
+    WireItem,
+    WireResult,
+)
 from apps.api.agent.evals.observation import EvalCase, EvalTurn
 from apps.api.agent.evals.rescore import EvaluationPipeline, judge_input
 from apps.api.agent.evals.runner import artifact_base, run_identity_fingerprint
@@ -96,7 +102,16 @@ CALIBRATION_PATH = SUITE_DIR / "calibration.json"
 
 #: The report a `score` run writes into its output directory.
 SCORE_REPORT_VERSION = "sample-score-report-v1"
-VALIDATION_REPORT_VERSION = "sample-judge-validation-v1"
+VALIDATION_REPORT_VERSION = "sample-judge-validation-v2"
+
+#: What a validation report may copy from a judge failure. Anything the judge
+#: wrote itself is withheld, like its raw answer: only fixed codes, the field
+#: names of the answer schema and the shape of a reference ID are kept.
+_REPORTABLE_CODE = re.compile(r"[a-z][a-z0-9_]{0,63}")
+_REPORTABLE_REFERENCE = re.compile(r"r[0-9]{1,6}")
+_ANSWER_FIELDS = frozenset(WireResult.model_fields) | frozenset(WireItem.model_fields)
+#: A calibration example ID, which also names its diagnostic file.
+_EXAMPLE_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{0,63}")
 
 
 def _verified_observations(
@@ -363,6 +378,44 @@ def _calibration_observation(example: dict[str, Any]) -> CaseObservation:
     )
 
 
+def _kept(value: Any, pattern: re.Pattern[str]) -> str | None:
+    """`value` when it is a string of that fixed shape, otherwise `None`."""
+    if isinstance(value, str) and pattern.fullmatch(value):
+        return value
+    return None
+
+
+def _reportable_failure(
+    diagnostic: dict[str, Any] | None, item_ids: frozenset[str]
+) -> dict[str, Any] | None:
+    """The checks a judge answer failed, without any text the judge wrote.
+
+    Only the fixed fields are copied: the failure code, the item (one of this
+    example's `item_ids`) and the reference ID it named, and the `type` / `loc`
+    of each schema error, where a key the judge invented becomes `None`. The
+    raw answer stays in the private diagnostic file.
+    """
+    failure = (diagnostic or {}).get("failure")
+    if failure is None:
+        return None
+    item = failure.get("item")
+    return {
+        "reason": _kept(failure.get("reason"), _REPORTABLE_CODE),
+        "item": item if item in item_ids else None,
+        "reference": _kept(failure.get("reference"), _REPORTABLE_REFERENCE),
+        "schema_errors": [
+            {
+                "type": _kept(error.get("type"), _REPORTABLE_CODE),
+                "loc": [
+                    part if isinstance(part, int) or part in _ANSWER_FIELDS else None
+                    for part in error.get("loc", ())
+                ],
+            }
+            for error in failure.get("schema_errors", ())
+        ],
+    }
+
+
 async def validate_judge(
     examples: Sequence[dict[str, Any]],
     *,
@@ -371,18 +424,32 @@ async def validate_judge(
     judge_price: ModelPrice | None,
     estimate_usd: float,
     max_cost_usd: float,
+    output: Path,
 ) -> dict[str, Any]:
     """Grade each labelled example once and compare the judge with the labels.
 
     Only the judge items are graded: the examples exist to measure the judge,
     and a mechanical check needs no calibration.
+
+    Every example's grading outcome goes into the report, so an example the
+    judge could not grade still says why. The judge's pre-parse diagnostic,
+    which holds its raw answer, is written owner-only under
+    `<output>/diagnostics/`, never into the report.
+
+    Args:
+        output: A new run directory for the diagnostics; the caller writes the
+            report next to them.
     """
     budget = CostBudget(max_usd=max_cost_usd)
     if not budget.allows(estimate_usd * len(examples)):
         raise EvidenceError("estimated_cost_over_ceiling")
     rubric = load_rubric()
+    diagnostics = output / "diagnostics"
+    output.mkdir(mode=0o700, parents=True)
+    diagnostics.mkdir(mode=0o700)
     labelled: list[ValidationExample] = []
     scores: list[ValidationScore] = []
+    results: list[dict[str, Any]] = []
     for example in examples:
         observation = _calibration_observation(example)
         case = EvalCase(
@@ -410,9 +477,40 @@ async def validate_judge(
             )
         )
         if not budget.allows(estimate_usd):
+            results.append(
+                {
+                    "example_id": example["example_id"],
+                    "status": "not_executed",
+                    "error_code": "cost_ceiling_reached",
+                    "usage": None,
+                    "failure": None,
+                    "diagnostic": None,
+                }
+            )
             continue
         result: JudgeResult = await judge.grade(
             judge_input(observation, contract, MechanicalResult(items=()), identity)
+        )
+        diagnostic = getattr(judge, "last_diagnostic", None)
+        saved = None
+        if diagnostic is not None:
+            if not _EXAMPLE_ID.fullmatch(example["example_id"]):
+                raise EvidenceError("unsafe_example_id")
+            saved = diagnostics / f"{example['example_id']}.json"
+            write_private(saved, diagnostic)
+        results.append(
+            {
+                "example_id": example["example_id"],
+                "status": result.status,
+                "error_code": result.error_code,
+                "usage": result.usage.model_dump(mode="json"),
+                "failure": _reportable_failure(
+                    diagnostic, frozenset(item.item_id for item in contract.items)
+                ),
+                "diagnostic": None
+                if saved is None
+                else saved.relative_to(output).as_posix(),
+            }
         )
         usage = result.usage
         if judge_price is not None:
@@ -437,6 +535,7 @@ async def validate_judge(
             "spent_usd": round(budget.spent_usd, 6),
         },
         "report": report.model_dump(mode="json"),
+        "results": results,
     }
 
 
@@ -509,6 +608,7 @@ def _score(args: argparse.Namespace) -> int:
 def _validate(args: argparse.Namespace) -> int:
     judge, settings = _judge_from_environment()
     examples = load_json(args.labels)["examples"]
+    directory = artifact_base() / "judge-validation" / timestamped_run_id()
     try:
         result = asyncio.run(
             validate_judge(
@@ -518,12 +618,11 @@ def _validate(args: argparse.Namespace) -> int:
                 judge_price=model_price(settings.model),
                 estimate_usd=judge_request_estimate_usd(settings),
                 max_cost_usd=args.max_cost_usd,
+                output=directory,
             )
         )
     except EvidenceError as exc:
         usage_error(f"cannot validate the judge: {exc}")
-    directory = artifact_base() / "judge-validation" / timestamped_run_id()
-    directory.mkdir(mode=0o700, parents=True)
     write_private(directory / "report.json", result)
     report = result["report"]
     print(f"report={directory / 'report.json'}")
@@ -535,6 +634,9 @@ def _validate(args: argparse.Namespace) -> int:
         f"judge_coverage={report['judge_coverage']['numerator']}/"
         f"{report['judge_coverage']['denominator']} accepted={report['accepted']}"
     )
+    for entry in result["results"]:
+        if entry["status"] != "ok":
+            print(f"- {entry['example_id']}: {entry['status']} {entry['error_code']}")
     print(f"cost: spent=${result['cost']['spent_usd']:.4f}")
     return 0 if report["accepted"] else 1
 
