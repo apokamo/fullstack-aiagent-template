@@ -9,11 +9,12 @@
 
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import type { ToolUIPart } from "ai";
+import type { DynamicToolUIPart, ToolUIPart, UIMessage } from "ai";
 import { describe, expect, it, vi } from "vitest";
 
 import {
   ToolApproval,
+  findPendingApprovalMessageId,
   pendingApprovalId,
 } from "@/components/chat/tool-approval";
 
@@ -25,6 +26,25 @@ function toolPart(state: ToolUIPart["state"]): ToolUIPart {
     input: { title: "t", body: "b" },
     ...(state === "approval-requested" ? { approval: { id: "call-1" } } : {}),
   } as ToolUIPart;
+}
+
+function dynamicToolPart(): DynamicToolUIPart {
+  return {
+    type: "dynamic-tool",
+    toolName: "save_note",
+    toolCallId: "call-dyn",
+    state: "approval-requested",
+    input: { title: "t", body: "b" },
+    approval: { id: "approval-dyn" },
+  } as DynamicToolUIPart;
+}
+
+function message(
+  id: string,
+  role: UIMessage["role"],
+  parts: UIMessage["parts"],
+): UIMessage {
+  return { id, role, parts };
 }
 
 describe("tool approval", { tags: ["small"] }, () => {
@@ -53,5 +73,38 @@ describe("tool approval", { tags: ["small"] }, () => {
     expect(pendingApprovalId(toolPart("input-available"))).toBeUndefined();
     expect(pendingApprovalId(toolPart("output-available"))).toBeUndefined();
     expect(pendingApprovalId(toolPart("output-denied"))).toBeUndefined();
+  });
+
+  it("最後の message が承認待ちの assistant message のときだけ、その id を返す", () => {
+    const pending = message("a-1", "assistant", [
+      toolPart("approval-requested"),
+    ]);
+    const done = message("a-2", "assistant", [toolPart("output-available")]);
+    const user = message("u-1", "user", [{ type: "text", text: "次の質問" }]);
+
+    expect(findPendingApprovalMessageId([pending])).toBe("a-1");
+    // AI SDK の承認応答が書き換えるのは最後の message だけ
+    expect(findPendingApprovalMessageId([pending, user])).toBeUndefined();
+    expect(findPendingApprovalMessageId([done])).toBeUndefined();
+    expect(findPendingApprovalMessageId([pending, user, done])).toBeUndefined();
+    expect(findPendingApprovalMessageId([])).toBeUndefined();
+  });
+
+  it("承認待ちが複数あれば、すべてに応答するまで id を返す", () => {
+    const partly = message("a-1", "assistant", [
+      toolPart("approval-responded"),
+      toolPart("approval-requested"),
+    ]);
+
+    expect(findPendingApprovalMessageId([partly])).toBe("a-1");
+  });
+
+  it("dynamic tool の承認待ちも判定し、承認 id を返す", () => {
+    const part = dynamicToolPart();
+
+    expect(
+      findPendingApprovalMessageId([message("a-1", "assistant", [part])]),
+    ).toBe("a-1");
+    expect(pendingApprovalId(part)).toBe("approval-dyn");
   });
 });

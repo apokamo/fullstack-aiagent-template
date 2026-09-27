@@ -19,7 +19,10 @@ import type { ChatOnDataCallback, UIMessage } from "ai";
 import { useCallback, useState } from "react";
 
 import { createChatProfileChannel } from "@/lib/chat-profiles";
-import type { ToolApprovalProps } from "@/components/chat/tool-approval";
+import {
+  findPendingApprovalMessageId,
+  type ToolApprovalProps,
+} from "@/components/chat/tool-approval";
 
 type ChatStatus = ReturnType<typeof useChat>["status"];
 
@@ -46,10 +49,24 @@ export type ChatSession = {
    * ちょうどその隙間に流れる。
    */
   readonly streamingMessageId: string | undefined;
+  /**
+   * 承認待ちの message の id（承認・却下のボタンを出す message）。
+   *
+   * 生成中も値を持つ —— 承認要求の part は stream の終わる前に届き、
+   * そのときからボタンを出す。判定は `findPendingApprovalMessageId`。
+   */
+  readonly pendingApprovalMessageId: string | undefined;
+  /**
+   * 承認待ちで送信を止める。
+   *
+   * **生成中は `false`。** 生成中は停止ボタン・入力欄の `disabled`・`send()` の
+   * 生成中 guard が既に送信を止めており、理由の表示を一瞬出してから消すことになる。
+   */
+  readonly awaitingApproval: boolean;
   /** 送信の失敗（AI SDK が握って state に積んだもの）。 */
   readonly error: Error | undefined;
   /**
-   * 本文を送る。空文字と生成中は送らない。
+   * 本文を送る。空文字・生成中・承認待ちは送らない。
    *
    * 生成物の `PromptInput` は添付の後始末を await するので Promise をそのまま
    * 返す。ただし AI SDK は通信・stream の失敗を握って `error` state に積むだけで
@@ -91,6 +108,9 @@ export function useChatSession({
   });
 
   const isGenerating = status === "submitted" || status === "streaming";
+  const pendingApprovalMessageId = findPendingApprovalMessageId(messages);
+  const awaitingApproval =
+    !isGenerating && pendingApprovalMessageId !== undefined;
 
   const selectProfile = useCallback(
     (value: string) => {
@@ -106,7 +126,10 @@ export function useChatSession({
       // `button[type="submit"]` の disabled だけ。生成中はそのボタンが
       // `type="button"`（停止ボタン）になっていて**照会に引っかからない**ので、
       // ここで止めないと進行中の run にもう 1 通投げられる。
-      if (isGenerating) {
+      //
+      // **承認待ちも受け付けない。** 入力の保護は `ChatShell` の送信ボタンの
+      // `disabled` が持ち、ここは form へ到達した場合の最後の歯止めである。
+      if (isGenerating || awaitingApproval) {
         return undefined;
       }
       const trimmed = text.trim();
@@ -115,7 +138,7 @@ export function useChatSession({
       }
       return sendMessage({ text: trimmed });
     },
-    [isGenerating, sendMessage],
+    [awaitingApproval, isGenerating, sendMessage],
   );
 
   const retry = useCallback(() => {
@@ -130,6 +153,8 @@ export function useChatSession({
     status,
     isGenerating,
     streamingMessageId: isGenerating ? messages.at(-1)?.id : undefined,
+    pendingApprovalMessageId,
+    awaitingApproval,
     error,
     send,
     stop,
