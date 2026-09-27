@@ -1,7 +1,7 @@
 # Issue #5 台帳のケースのテストを揃える
 
 - Issue: #5（親Epic: #6、依存: #2、#3、#4（いずれもCLOSED））
-- type: `type:test`、area: `area:frontend`
+- type: `type:test`、area: `area:frontend`、`area:backend`（backendのSmallを1本足すため。§6）
 - base: `origin/main` `5293d75e29af9fec98aae468e3eed26809a8a535`
 
 ## 目的と範囲外
@@ -17,7 +17,8 @@
 
 範囲外（Issue #5の`## 範囲外`と`## 決定事項`）:
 
-- 画面とbackendの振る舞いの変更。製品コード（`apps/web/src/**`のテスト以外、`apps/api/**`）は変えない。
+- 画面とbackendの振る舞いの変更。製品コード（`apps/web/src/**`のテスト以外、`apps/api/**`の`apps/api/tests/`以外）は
+  変えない。backendはテスト（`apps/api/tests/test_sample_fake_model.py`）を1本足すだけ（§6）。
   唯一の例外はS4が不安定な場合のfake modelの`FAKE_STREAM_STEP_S`で、扱いは「失敗と安全」に書く
 - A7（#3）とE5（#4）の追加のテスト。既存の登録をそのまま使う
 - テストの過程で既存の不具合が見つかり、製品コードを変えないとケースを満たせない場合、そのケースは#5で登録
@@ -179,7 +180,7 @@ const parts = page.getByTestId("sample-response").locator(":scope > *");
 | 却下（既存を置き換え） | `@case:A5` | `runToEnd`で`NOTE_PROMPT`を送り、`tool-approval`が見える。`runToEnd`で`却下`を押す。`tool-approval`が0件、`tool-header`が1件（同じtoolを再提案しない）、直下の要素の合計が2、`Submit`が押せる（承認待ちが残っていない）、POSTが2本 |
 | 承認（既存を置き換え） | `@case:A1`、`@case:A4`、`@case:A6` | `runToEnd`で`NOTE_PROMPT`を送る。`tool-approval`が見え、`tool-header`が`save_note`を含み、カードが`NOTE_TITLE`と`NOTE_BODY`を含む。POSTが1本（承認前は再開のrunが無い＝書き込みは実行されていない）、直下の要素の合計が1。Lunaを選び、`runToEnd`で`承認`を押す。`tool-approval`が0件、直下の要素の合計が2、profileが`[DS4, DS4]`。`runToEnd`で`NEXT_PROMPT`を送り、profileが`[DS4, DS4, LUNA]` |
 | 停止（新規） | `@case:S4` | `SLOW_PROMPT`を送り、`Stop`が見えたら、`page.waitForEvent("requestfailed", isChatPost)`を登録してから`Stop`を押す。そのPOSTが中断され（`requestfailed`が来る）、`Stop`が0件、`Submit`が見え、入力欄（`getByRole("textbox")`）が操作できる |
-| 表示の伸びと自動スクロール（新規） | `@case:S9` | `test.use({ viewport: { width: 1280, height: 360 } })`。`runToEnd`で`GREETING_PROMPT`を送る。会話のscroll要素（`role="log"`の子孫で`overflow-y`が`auto`か`scroll`のもの）の`scrollHeight`を記録し、`page.evaluate`で`MutationObserver`を仕掛けて最後の`sample-response`の`textContent.length`を変化のたびに記録する。`runToEnd`で`SLOW_PROMPT`を送る。記録した0より大きい長さが2種類以上（表示が段階的に伸びた）、`scrollHeight`が記録値より大きく`clientHeight`より大きい（中身がはみ出した）、`expect.poll`で`scrollHeight - scrollTop - clientHeight <= 1`（下端にいる） |
+| 表示の伸びと自動スクロール（新規） | `@case:S9` | `test.use({ viewport: { width: 1280, height: 360 } })`。`runToEnd`で`GREETING_PROMPT`を送り、`sample-response`が1件になる。会話のscroll要素（`role="log"`の子孫で`overflow-y`が`auto`か`scroll`のもの）の`scrollHeight`を記録する。`page.evaluate`で`role="log"`の要素に`MutationObserver`（`childList`、`subtree`、`characterData`）を仕掛け、変化のたびに`sample-response`をすべて取り、**2件目（SLOWのrunで新しく作られるカード）があるときだけ**その`textContent.length`を記録する。GREETINGの既存カード（1件目）は記録しない。`runToEnd`で`SLOW_PROMPT`を送る。`sample-response`が2件、記録した0より大きい長さが2種類以上で、記録順に増えている（新しいカードの表示が段階的に伸びた）。scrollはこのrunに結び付けて確かめる: `scrollHeight`が記録値より大きく`clientHeight`より大きい（SLOWのカードで中身がはみ出した）、`expect.poll`で`scrollHeight - scrollTop - clientHeight <= 1`（下端にいる）、2件目のカードの`getBoundingClientRect().bottom`がscroll要素の`getBoundingClientRect().bottom + 1`以下（新しいカードの末尾が見えている） |
 | 再試行（新規） | `@case:E2` | `page.route("**/api/chat", ..., { times: 1 })`で最初のPOSTだけ`502`と`{ error: "chat backend is unreachable" }`を返す。`SEARCH_PROMPT`を送る。`main`の`role="alert"`が1件で、その中に`再試行`のボタンがある。`runToEnd`で`再試行`を押す。`main`の`role="alert"`が0件、`sample-response`が1件、POSTが2本（2本目は実際にFastAPIへ届く） |
 | 承認待ちの再読み込み（新規） | `@case:A8` | `runToEnd`で`NOTE_PROMPT`を送り、`tool-approval`が見える。`page.reload()`し、`model-select`が押せるまで待つ。`sample-response`が0件、`tool-approval`が0件、`getByRole("log").getByRole("heading")`が1件（空の会話の案内）。`runToEnd`で`GREETING_PROMPT`を送る。POSTが合計2本（再開のPOSTが無い＝書き込みは実行されない）、2本目のbodyは`trigger: "submit-message"`で`messages`が1件（前の会話を運んでいない） |
 | 再読み込みで選択が戻る（新規） | `@case:P11` | Lunaを選び、`page.reload()`し、`model-select`が押せるまで待つ。`runToEnd`で`GREETING_PROMPT`を送る。送ったprofileが`[DS4]`（既定。`playwright.config.ts`と`make test-e2e`が`LLM_PROFILE`をDS4にpinしている） |
@@ -275,9 +276,31 @@ MediumでできないことはSmallとbackendのテストが持つ。
 | `SEARCH_ANSWER` | 検索のrunの終わりを待つ | fake modelの結論はbackendの`test_sample_fake_model.py` 106行（「「テストの tier」に記載があります。」）。本文partを画面に出すことは`chat-page.test.tsx`「@case:S11 本文と tool 結果を出す」 |
 | `SAVED_TEXT` | 承認後の再開の終わりを待つ、承認前に無いことを確かめる | `test_sample_fake_model.py` 124行。承認前に実行されていないことは、E2EではPOSTの本数で確かめる |
 | `DENIED_TEXT` | 却下後の再開の終わりを待つ | `test_sample_fake_model.py` 136行 |
-| `NEXT_ANSWER` | 次のrunの終わりを待つ | 検索の結論と同じ組み立て（`fake_model.py` 150〜153行）で、106行のテストが確かめる |
+| `NEXT_ANSWER` | 次のrunの終わりを待つ | **無い**（106行は題名を与えた組み立てだけで、「環境変数の置き場」を先頭に返す検索とその結論を確かめるテストが無い）。下のbackendのSmallを足す |
 
-どれも既にSmallがあるので、Smallは足さない。
+`SEARCH_ANSWER`・`SAVED_TEXT`・`DENIED_TEXT`は既存のSmallで足りる。`NEXT_ANSWER`は無いので、
+`apps/api/tests/test_sample_fake_model.py`（`pytestmark = pytest.mark.small`）に次の1本を足す。
+
+```python
+@pytest.mark.parametrize(
+    ("prompt", "expected"),
+    [
+        ("サンプル文書でテストのtierを検索して説明してください。", "「テストの tier」に記載があります。"),
+        ("環境変数の置き場を検索してください。", "「環境変数の置き場」に記載があります。"),
+    ],
+)
+async def test_the_e2e_search_prompts_quote_the_expected_title(prompt, expected) -> None:
+    """E2Eが送る検索の発話は、同梱コーパスの検索と結論でこの文になる."""
+```
+
+- 手順: `default_search_source().search(prompt, SEARCH_RESULT_LIMIT)`（`apps/api/sample/corpus.py`、
+  `apps/api/sample/tools.py`の`SEARCH_RESULT_LIMIT`）の結果を`{"results": [{"doc_id": ..., "title": ...}]}`に
+  して`tool_turn("search_docs", ..., prompt=prompt)`を`drain`し、`chunks == [expected]`
+- `prompt`はE2Eの`SEARCH_PROMPT`・`NEXT_PROMPT`と同じ値。E2Eから外す2つの結論（`SEARCH_ANSWER`・
+  `NEXT_ANSWER`）の文言を、検索の順位を含めてSmallで確かめる。`SEARCH_ANSWER`は106行が組み立てだけを
+  確かめているので、同じテストで順位も確かめる
+- 製品コード（`fake_model.py`、`corpus.py`、`tools.py`）は変えない。このテストが失敗する場合（先頭ヒットが
+  違うなど）は既存の不具合として「失敗と安全」の切り出しに従う
 
 ### 7. 台帳
 
@@ -294,9 +317,8 @@ MediumでできないことはSmallとbackendのテストが持つ。
   そのケースを除いて判定する
 - **S4が不安定な場合**: 停止の窓は5断片×0.35秒。停止ボタンを押す前にstreamが終わると`requestfailed`が
   来ずに失敗する（黙って成功しない）。3回の`make test-e2e`でこれが起きたら、`FAKE_STREAM_STEP_S`を
-  変える前に、測った失敗（回数、trace）を添えてimplementから`BACK`で設計へ戻す。設計で値を決め、変更が
-  `apps/api/`に及ぶので`area:backend`を足し、`make verify-backend`（final gateは`make gate-backend`）を
-  laneに加える
+  変える前に、測った失敗（回数、trace）を添えてimplementから`BACK`で設計へ戻す。設計で値を決める。`area:backend`と
+  `make verify-backend` / `make gate-backend`は§6のbackendのSmallのために既に選んでいる
 - **順序と共有データへの依存**: 各テストは`goto`から始め、会話は画面ごとに新しいidになる。DBはテスト専用で、
   テストは他のテストが書いた行を読まない。Mediumのchat idは`randomUUID()`で毎回変える
 - **dev overlay**: `role="alert"`と件数は`main`に絞る。Tabの移動は`tabTo`でfocusを確かめながら進める
@@ -316,7 +338,8 @@ MediumでできないことはSmallとbackendのテストが持つ。
 
 1. Small（Smallだけのケース）: `model-select.test.tsx`と`chat-page.test.tsx`のP1、P2、P4、P6、S2、S3、S5、
    S6、S7、S8、E1、E4、X1、X2と、`route.test.ts`のE4の注釈。台帳にこの14件を足す
-2. E2Eの置き換え: `sample-chat.spec.ts`の既存3本を§2・§3のとおりに書き換え、4つの応答文の定数を消す。
+2. E2Eの置き換え: `apps/api/tests/test_sample_fake_model.py`に§6のSmallを足してから、`sample-chat.spec.ts`の
+   既存3本を§2・§3のとおりに書き換え、4つの応答文の定数を消す。
    検索のテストの`@case:S1`と`chat-page.test.tsx`のS1のSmallもここで足す。台帳にA5とS1（`[e2e, small]`）を
    足す
 3. E2Eの追加: `keyboard.ts`、`home.spec.ts`、`sample-chat.spec.ts`の新規6本。台帳にH2、H3、P11、S4、S9、E2、
@@ -332,7 +355,8 @@ MediumでできないことはSmallとbackendのテストが持つ。
 | `make verify-frontend` | 必須 | Smallの追加と台帳の突き合わせ（Frontend logicの行） |
 | `make test-e2e` | 必須、3回続けて | MediumとE2Eの追加・変更（Frontend/fullstack user flowの行、testing.md「確認するコマンド」）。Issue #5の完了条件で3回続けて成功 |
 | `make check-all` | 必須（final） | Issue #5の完了条件 |
-| `make verify-backend` / `make gate-backend` | 条件付き | `FAKE_STREAM_STEP_S`を変えた場合だけ（「失敗と安全」） |
+| `make verify-backend` | 必須 | `apps/api/tests/test_sample_fake_model.py`にSmallを足す（Backend deterministic logic or fake modelの行。fake modelのテスト） |
+| `make gate-backend` | 必須（final） | 同上のfinal gate |
 | `make test-on-schema-change` | 不要 | schemaとmigrationを変えない |
 | `make test-llm` / `make evals` | 不要 | prompt、tool、agent loop、HITLの方針、profile、providerを変えない。fake modelだけを使う |
 
@@ -343,7 +367,7 @@ commitごとに1件なので、2回目と3回目は`RERAN`（理由: Issue #5の
 
 ```bash
 git -C <worktree> diff --name-only origin/main...HEAD -- apps/web/src apps/api \
-  | grep -Ev '\.test\.tsx?$'
+  | grep -Ev '\.test\.tsx?$|^apps/api/tests/'
 ```
 
 skipに注釈が無いこと、E2Eが応答文を使っていないことは次で確かめる（どちらも出力が空）。
@@ -377,16 +401,16 @@ base（`5293d75`）で次を記録する。
 | A7とE5 | 既存の登録を使い、重ねない | Issue #5`## 対象の契約` | — |
 | 種類 | #6の表の種類 | Issue #5`## 対象の契約`、#6`## ケース一覧` | 「A / B」を`kinds: [a, b]`に読む（#2のS11・A6と同じ） |
 | E2Eは文言を確かめない | 状態はrole、testid、要素の数、URL | Issue #5`## 決定事項`、#6`## 決定事項` | §1の3区分。入力データのechoとtool名、profile idはassertionに使う（前提。A1の既存の確かめ方と同じ。レビューで確認） |
-| 置き換えた文言のSmall | 既存のSmallを確認し、無ければ足す | Issue #5`## 決定事項` | 4つともbackendのSmallにあるので足さない（§6） |
+| 置き換えた文言のSmall | 既存のSmallを確認し、無ければ足す | Issue #5`## 決定事項` | 3つは既存のbackendのSmall。`NEXT_ANSWER`（と`SEARCH_ANSWER`の検索順位）はbackendのSmallを1本足す。そのため`area:backend`と`make verify-backend` / `make gate-backend`を足す（§6） |
 | runの終わりの待ち方 | 応答の読み切りと停止ボタンの消滅 | 前提（two-way door）。`prompt-input.tsx` 1226〜1256行 | `runToEnd` |
 | 結論が出たことの確認 | `sample-response`の直下の要素の合計 | 前提（two-way door）。`response.tsx` 411〜475行 | 承認の再開がカードを分けても同じ数になる |
 | S4の停止 | fake modelの`TRIGGER_SLOW`を使う | Issue #5`## 決定事項` | 中断は`requestfailed`で確かめる。不安定なら設計へ戻して定数を決める |
-| S9の自動スクロール | E2E | #6`## ケース一覧` | viewportを低くし、`MutationObserver`で伸びを、scroll要素で下端を確かめる（前提。レビューで確認） |
+| S9の自動スクロール | E2E | #6`## ケース一覧` | viewportを低くし、`MutationObserver`でSLOWのrunが作る2件目のカードの伸びを、scroll要素の下端とそのカードの末尾の位置でスクロールを確かめる（前提。レビューで確認） |
 | A8 | 会話が空になり、書き込みが実行されない | Issue #5`## 決定事項`、#6`## 決定事項` | 再開のPOSTが無いこと、次の送信が前の会話を運ばないことで確かめる |
 | Mediumの置き場所 | `tests/e2e/request/`、`request` fixture | Issue #5`## 決定事項`、testing.md | 4本の中身 |
 | E3の503 | Mediumでは確かめない | 前提。`playwright.config.ts`の`OPENAI_API_KEY`、`llm_profiles.py`（どのprofileも503にならない。設定を変えるとA6などのLunaが使えない） | 503はSmallとbackendのテストが持つ |
 | P10の「止まっている」 | Mediumでは確かめない | 前提。Mediumは起動中のFastAPIを使う | Smallの502のテストにbodyのassertionを足す |
 | 製品を変える必要が出た場合 | ケースを外し、#6の子Issueを起票 | Issue #5`## 決定事項` | 起票の手段と報告の内容 |
-| `FAKE_STREAM_STEP_S` | 不安定な場合に限り調整してよい | Issue #5`## 決定事項` | 変える前に設計へ戻し、`area:backend`とbackendのlaneを足す |
+| `FAKE_STREAM_STEP_S` | 不安定な場合に限り調整してよい | Issue #5`## 決定事項` | 変える前に設計へ戻して値を決める（`area:backend`とbackendのlaneは§6で選択済み） |
 | 時間の上限 | `playwright.config.ts`だけ | Issue #5`## 不安定さへの対策`、testing.md | `setTimeout`、`waitForTimeout`、`timeout`指定を使わない |
 | 文書 | 変更しない | testing.mdが既に規約を持つ（#2） | spec fileの先頭のコメント |
