@@ -68,7 +68,7 @@
 台帳の`kinds`は#6の「種類」から決める。「E2E / Small」は`[e2e, small]`、「Small / Medium」は`[small, medium]`
 （#2で`S11`と`A6`を`[e2e, small]`にした読み方と同じ）。`feature`は台帳の既存の対応（H→`home`、
 P→`model-select`、S→`send`、E→`send-error`、A→`approval`、X→`accessibility`）、`category`と`description`は
-#6の表の値をそのまま使う。
+Issue #6の表の値をそのまま使う。
 
 | id | kinds | 今の状態 | この設計で足すもの |
 |---|---|---|---|
