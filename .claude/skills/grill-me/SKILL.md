@@ -88,7 +88,8 @@ When in doubt, grill. A missed front-load costs more than a light interview on a
 
 - Issue ID supplied by the human; there is no injected Kaji context before the workflow starts.
 - Issue body, comments, labels, linked Issues/PRs, `docs/`, and the repository code.
-- Repository is `[provider.github].repo` in `.kaji/config.toml`; provider reads and writes use `uv run kaji issue`.
+- Repository is the effective `[provider.github].repo` (`.kaji/config.local.toml` overlays `.kaji/config.toml`);
+  provider reads and writes use `uv run kaji issue`.
 
 ## Procedure
 

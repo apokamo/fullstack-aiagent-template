@@ -1,7 +1,8 @@
 """Format references for the configured repository.
 
-Semantic approval belongs to the caller. The repository comes from
-`[provider.github].repo` in `.kaji/config.toml`; no remote discovery occurs.
+Semantic approval belongs to the caller. The repository is the effective
+`[provider.github].repo` that Kaji resolves from `.kaji/config.toml` and the
+ignored `.kaji/config.local.toml` overlay; no remote discovery occurs.
 """
 
 from __future__ import annotations
@@ -10,9 +11,11 @@ import argparse
 from pathlib import Path
 import re
 import sys
-import tomllib
 
-_CONFIG_PATH = Path(__file__).resolve().parents[2] / ".kaji/config.toml"
+from kaji_harness.config import KajiConfig  # type: ignore[import-untyped]
+from kaji_harness.errors import HarnessError  # type: ignore[import-untyped]
+
+_REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 
 #: GitHub が owner 名と repository 名に許す文字。テンプレートの仮の値
 #: `<owner>/<repo>` はここで必ず拒否される。
@@ -35,10 +38,19 @@ class UnconfiguredRepository(InvalidReference):
     """`[provider.github].repo` is not a real GitHub `owner/name`."""
 
 
-def configured_repository() -> str:
-    """Return `[provider.github].repo` from `.kaji/config.toml`."""
-    config = tomllib.loads(_CONFIG_PATH.read_text(encoding="utf-8"))
-    return str(config["provider"]["github"]["repo"])
+def configured_repository(repository_root: Path = _REPOSITORY_ROOT) -> str:
+    """Return the `[provider.github].repo` that Kaji resolves for this checkout.
+
+    Kaji's own loader applies the `.kaji/config.local.toml` overlay, so the
+    value always matches what `kaji issue` and `kaji pr` operate on.
+    """
+    try:
+        config = KajiConfig.discover(repository_root)
+    except HarnessError as error:
+        raise UnconfiguredRepository(
+            f"cannot load Kaji configuration: {error}"
+        ) from error
+    return "" if config.provider is None else config.provider.github.repo
 
 
 def synchronize(
@@ -60,7 +72,7 @@ def synchronize(
     if match is None:
         raise UnconfiguredRepository(
             f"[provider.github].repo is {repository!r}; set it to your GitHub "
-            "owner/name in .kaji/config.toml (docs/howto/use-template.md)"
+            "owner/name in .kaji/config.local.toml (docs/howto/use-template.md)"
         )
     owner, name = match.groups()
     repository_alternation = "|".join(

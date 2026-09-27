@@ -65,8 +65,8 @@ Worktree mode: `creates-issue-worktree`.
    <git_remote>/<default_branch>`. If both exist, require the same repository, expected branch/path, and valid base
    ancestry. One-sided or conflicting state is `ABORT`.
 3. Invoke the absolute main-checkout script `scripts/kaji/bootstrap_worktree_env.sh <main-repo> <worktree_dir>`.
-4. Verify `.venv`, `.env`, four required secret links, optional PEM links, root `node_modules`, web `node_modules`,
-   and branch/base.
+4. Verify `.venv`, `.env`, four required secret links, optional PEM links, the `.kaji/config.local.toml` link when
+   the main checkout has one, root `node_modules`, web `node_modules`, and branch/base.
 5. Run `uv run kaji issue prepend-note <issue_id> --worktree <basename> --branch <branch_name>` and post the start
    report. Re-entry must converge without duplicate NOTE or replaced assets.
 

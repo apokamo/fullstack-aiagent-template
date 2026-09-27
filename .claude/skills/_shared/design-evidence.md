@@ -52,7 +52,8 @@ PR publication consumes final approval and does not recheck or repair the design
    An optional deterministic body formatter is available as
    `uv run python -m scripts.kaji.sync_design_reference --help`; it formats
    references only and cannot establish semantic approval. Its repository is
-   `[provider.github].repo` in `.kaji/config.toml`; the template placeholder is rejected.
+   the effective `[provider.github].repo` that Kaji resolves, including
+   `.kaji/config.local.toml`; the template placeholder is rejected.
 3. Before writing, re-fetch the body and rebase the block-only edit if it has
    changed. Use `uv run kaji issue edit <issue_id> --body-file <file>`; re-read
    and check exactly one marker pair and its full SHA/path permalink inside
