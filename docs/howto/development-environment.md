@@ -22,6 +22,10 @@ npm --prefix apps/web run test:e2e:install
 
 最後の行はE2Eで使うbrowserを入れます。E2Eを実行しない場合は省けます。
 
+kajiのworkflowを使う場合は、[kaji](https://github.com/apokamo/kaji)と[Herdr](https://github.com/herdrdev/herdr)も
+使います。kajiは開発用依存に入っているので、上の`uv sync`で入ります。Herdrは0.8.2以上を別に入れます。
+起動の手順は[workflowの全体像](../dev/workflow-overview.md#起動)を参照してください。
+
 ## envとsecret
 
 ```sh
