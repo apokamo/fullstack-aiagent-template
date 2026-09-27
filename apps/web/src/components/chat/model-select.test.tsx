@@ -62,6 +62,22 @@ describe("model select", { tags: ["small"] }, () => {
     expect(screen.queryByTestId("model-list-error")).toBeNull();
   });
 
+  it("@case:P1 一覧の取得中は選べず、「読み込み中…」を出す", () => {
+    renderSelect({ status: "loading", profiles: [], value: "" });
+
+    const select = screen.getByTestId("model-select");
+    expect(select).toBeDisabled();
+    expect(select).toHaveTextContent("読み込み中…");
+  });
+
+  it("@case:X1 選択欄に可視ラベル「モデル」が結び付いている", () => {
+    renderSelect();
+
+    expect(screen.getByRole("combobox", { name: "モデル" })).toBe(
+      screen.getByTestId("model-select"),
+    );
+  });
+
   it("@case:P8 一覧の取得中・取得失敗・生成中は選べない", () => {
     for (const overrides of [
       { status: "loading", value: "" },
@@ -84,11 +100,13 @@ describe("model select", { tags: ["small"] }, () => {
     }
   });
 
-  it("@case:P3 一覧取得に失敗したら理由と再取得導線を出す", async () => {
+  it("@case:P3 @case:X2 一覧取得に失敗したら理由と再取得導線を読み上げ対象で出す", async () => {
     const onRetry = vi.fn();
     renderSelect({ status: "failed", value: "", onRetry });
 
-    expect(screen.getByTestId("model-list-error")).toHaveTextContent(
+    const error = screen.getByTestId("model-list-error");
+    expect(error).toHaveAttribute("role", "alert");
+    expect(error).toHaveTextContent(
       "モデル一覧を取得できませんでした。再取得してください。",
     );
     await userEvent.click(screen.getByRole("button", { name: "再取得" }));

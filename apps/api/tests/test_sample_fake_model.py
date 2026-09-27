@@ -15,6 +15,7 @@ import pytest
 
 from apps.api.agent.model_factory import MissingFakeModel, ModelFactory
 from apps.api.core.config import get_llm_settings
+from apps.api.sample.corpus import default_search_source
 from apps.api.sample.fake_model import (
     DENIED_TEXT,
     FAKE_NOTE_BODY,
@@ -24,6 +25,7 @@ from apps.api.sample.fake_model import (
     SampleFakeUnexpectedInput,
     _fake_stream,
 )
+from apps.api.sample.tools import SEARCH_RESULT_LIMIT
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -104,6 +106,36 @@ async def test_the_search_result_is_quoted_in_the_conclusion() -> None:
     )
 
     assert chunks == ["「テストの tier」に記載があります。"]
+
+
+@pytest.mark.parametrize(
+    ("prompt", "expected"),
+    [
+        (
+            "サンプル文書でテストのtierを検索して説明してください。",
+            "「テストの tier」に記載があります。",
+        ),
+        (
+            "環境変数の置き場を検索してください。",
+            "「環境変数の置き場」に記載があります。",
+        ),
+    ],
+)
+async def test_the_e2e_search_prompts_quote_the_expected_title(
+    prompt: str, expected: str
+) -> None:
+    """E2Eが送る検索の発話は、同梱コーパスの検索と結論でこの文になる.
+
+    `prompt` は `apps/web/tests/e2e/ui/sample-chat.spec.ts` の `SEARCH_PROMPT` /
+    `NEXT_PROMPT` と同じ値。E2E は結論の文言を確かめないので、検索の順位を含めて
+    ここで固定する。
+    """
+    hits = default_search_source().search(prompt, SEARCH_RESULT_LIMIT)
+    content = {"results": [{"doc_id": hit.doc_id, "title": hit.title} for hit in hits]}
+
+    chunks = await drain(tool_turn("search_docs", content, prompt=prompt))
+
+    assert chunks == [expected]
 
 
 async def test_an_empty_search_result_says_so_without_retrying() -> None:
