@@ -57,7 +57,7 @@ describe("resolveRequestProfile", { tags: ["small"] }, () => {
     ).toBe(LUNA);
   });
 
-  it("承認再開は元の run の profile を保持する", () => {
+  it("@case:A6 承認再開は元の run の profile を保持する", () => {
     expect(
       resolveRequestProfile({
         trigger: "submit-message",
@@ -92,7 +92,7 @@ describe("createPrepareSendMessagesRequest", { tags: ["small"] }, () => {
     });
   }
 
-  it("A 送信 → B へ変更 → 承認再開は A、続く再試行は B を送る", async () => {
+  it("@case:A6 A 送信 → B へ変更 → 承認再開は A、続く再試行は B を送る", async () => {
     const sent: unknown[] = [];
     const selected = { current: DS4 };
     const lastSent: { current: string | undefined } = { current: undefined };
@@ -242,7 +242,7 @@ afterEach(() => {
 });
 
 describe("createChatProfileChannel", { tags: ["small"] }, () => {
-  it("select() だけが選択を書き換え、次の送信から効く", async () => {
+  it("@case:P7 select() だけが選択を書き換え、次の送信から効く", async () => {
     const sent: unknown[] = [];
     vi.stubGlobal(
       "fetch",

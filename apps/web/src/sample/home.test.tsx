@@ -11,7 +11,7 @@ import Home from "./home";
 import { metadata } from "@/app/layout";
 
 describe("sample home", { tags: ["small"] }, () => {
-  it("metadata と同じ名称・説明と、チャットへの導線を出す", () => {
+  it("@case:H1 metadata と同じ名称・説明と、チャットへの導線を出す", () => {
     render(<Home />);
 
     expect(

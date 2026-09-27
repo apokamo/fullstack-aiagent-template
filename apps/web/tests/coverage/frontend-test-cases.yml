@@ -1,0 +1,59 @@
+# webのテストケースの台帳。手書きの唯一の正本で、テスト側の`@case:<id>`の注釈と
+# `make verify-frontend`（scripts/testing/frontend_test_cases.py）で突き合わせる。
+# 規約はdocs/reference/frontend/testing.md。
+cases:
+  - id: H1
+    feature: home
+    category: 状態
+    description: "名称、説明、チャットへの導線が表示される"
+    kinds: [small]
+  - id: P3
+    feature: model-select
+    category: APIエラー
+    description: "一覧の取得に失敗すると、理由と再取得のボタンが出る"
+    kinds: [small]
+  - id: P5
+    feature: model-select
+    category: 状態
+    description: "利用できない選択肢は選べず、理由が文字で出る"
+    kinds: [small]
+  - id: P7
+    feature: model-select
+    category: 操作
+    description: "選ぶと、選んだidが次の送信に反映される"
+    kinds: [small]
+  - id: P8
+    feature: model-select
+    category: 状態
+    description: "生成中は選べない"
+    kinds: [small]
+  - id: S11
+    feature: send
+    category: 状態
+    description: "toolの結果（`search_docs`）が表示される"
+    kinds: [e2e, small]
+  - id: A1
+    feature: approval
+    category: 状態
+    description: "書き込むtoolは承認前に止まり、渡される引数が読める"
+    kinds: [e2e]
+  - id: A2
+    feature: approval
+    category: 操作
+    description: "承認すると`approved: true`が1回だけ送られる"
+    kinds: [small]
+  - id: A3
+    feature: approval
+    category: 操作
+    description: "却下すると`approved: false`が1回だけ送られる"
+    kinds: [small]
+  - id: A4
+    feature: approval
+    category: 画面遷移
+    description: "承認すると自動で再開し、承認欄が消えて結果が出る"
+    kinds: [e2e]
+  - id: A6
+    feature: approval
+    category: データの形
+    description: "承認で再開したrunは元のprofile、次の発話は選び直したprofileで送る"
+    kinds: [e2e, small]

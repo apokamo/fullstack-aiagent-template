@@ -82,7 +82,9 @@ kaji操作と設計書のpermalinkにも同じ値が使われます。worktree�
 2. fake model: `apps/api/sample/fake_model.py`の応答を、新しいtoolに合わせて書き換えます。E2Eはこの
    fake modelで動きます
 3. 画面: `apps/web/src/sample/`の見出しと応答の描き方を書き換えます。E2E（`apps/web/tests/e2e/`）も
-   新しい流れに合わせます
+   新しい流れに合わせます。テストケースの台帳（`apps/web/tests/coverage/frontend-test-cases.yml`）と
+   テストの`@case:<id>`の注釈も合わせます。規約は[フロントエンドテスト](../reference/frontend/testing.md)を
+   参照してください
 4. eval: `apps/api/sample/evals/`のdataset、scorer、rubricを置き換え、baselineを測り直します。手順は
    [evalの追加](add-eval.md)を参照してください
 

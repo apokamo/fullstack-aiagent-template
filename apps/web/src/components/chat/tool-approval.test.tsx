@@ -28,7 +28,7 @@ function toolPart(state: ToolUIPart["state"]): ToolUIPart {
 }
 
 describe("tool approval", { tags: ["small"] }, () => {
-  it("押すまでは応答を送らず、承認ボタンは approved: true で応答する", async () => {
+  it("@case:A2 押すまでは応答を送らず、承認ボタンは approved: true で応答する", async () => {
     const onRespond = vi.fn();
     render(<ToolApproval approvalId="call-1" onRespond={onRespond} />);
     expect(onRespond).not.toHaveBeenCalled();
@@ -38,7 +38,7 @@ describe("tool approval", { tags: ["small"] }, () => {
     expect(onRespond).toHaveBeenCalledWith({ id: "call-1", approved: true });
   });
 
-  it("却下ボタンは approved: false で応答する", async () => {
+  it("@case:A3 却下ボタンは approved: false で応答する", async () => {
     const onRespond = vi.fn();
     render(<ToolApproval approvalId="call-1" onRespond={onRespond} />);
 
