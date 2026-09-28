@@ -140,6 +140,23 @@ def test_actual_sdk_contract_and_usage() -> None:
     assert len(calls) == 1
 
 
+def test_the_default_judge_reasons_and_cites_every_required_evidence() -> None:
+    bodies = []
+
+    def serve(request: httpx.Request) -> httpx.Response:
+        bodies.append(json.loads(request.content))
+        return httpx.Response(200, json=response_body())
+
+    judge = ResponsesJudge(SETTINGS, RUBRIC, transport=httpx.MockTransport(serve))
+    asyncio.run(judge.grade(request_input()))
+    (body,) = bodies
+    assert body["reasoning"] == {"effort": "medium"}
+    assert (
+        "An item's references must include the reference of every evidence_id"
+        " listed in that item's evidence_ids" in body["instructions"]
+    )
+
+
 @pytest.mark.parametrize(
     "status,fatal",
     [(401, True), (500, False)],
