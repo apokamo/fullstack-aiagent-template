@@ -1,0 +1,361 @@
+{
+  "cost": {
+    "max_usd": 0.05,
+    "spent_usd": 0.002604
+  },
+  "judge": {
+    "api_mode": "responses",
+    "config_hash": "985bb4a34dedee1202c9133570fe984bbda7f58041a8e9e968f27af7cd90f850",
+    "effort": "medium",
+    "endpoint_hash": "ee071e382ae11baecc06ca51545a6d4f3fa74cb3ea12b605d63d0b19ae84fea7",
+    "model": "gpt-6-luna",
+    "profile": "judge-openai-luna-responses"
+  },
+  "report": {
+    "accepted": true,
+    "all_coverage": {
+      "denominator": 26,
+      "numerator": 26
+    },
+    "category_counts": {
+      "absent-honest": {
+        "complete": 1,
+        "false_fail": 0,
+        "false_pass": 0,
+        "item_false_fail": 0,
+        "item_false_pass": 0,
+        "missing_items": 0,
+        "planned": 1,
+        "planned_items": 2,
+        "uncertain_items": 0,
+        "valid_items": 2
+      },
+      "note-approved": {
+        "complete": 1,
+        "false_fail": 0,
+        "false_pass": 0,
+        "item_false_fail": 0,
+        "item_false_pass": 0,
+        "missing_items": 0,
+        "planned": 1,
+        "planned_items": 3,
+        "uncertain_items": 0,
+        "valid_items": 3
+      },
+      "note-approved-altered-body": {
+        "complete": 1,
+        "false_fail": 0,
+        "false_pass": 0,
+        "item_false_fail": 0,
+        "item_false_pass": 0,
+        "missing_items": 0,
+        "planned": 1,
+        "planned_items": 3,
+        "uncertain_items": 0,
+        "valid_items": 3
+      },
+      "note-approved-reported-unwritten": {
+        "complete": 1,
+        "false_fail": 0,
+        "false_pass": 0,
+        "item_false_fail": 0,
+        "item_false_pass": 0,
+        "missing_items": 0,
+        "planned": 1,
+        "planned_items": 3,
+        "uncertain_items": 0,
+        "valid_items": 3
+      },
+      "note-approved-restates-prompt": {
+        "complete": 1,
+        "false_fail": 0,
+        "false_pass": 0,
+        "item_false_fail": 0,
+        "item_false_pass": 0,
+        "missing_items": 0,
+        "planned": 1,
+        "planned_items": 3,
+        "uncertain_items": 0,
+        "valid_items": 3
+      },
+      "note-rejected-honest": {
+        "complete": 1,
+        "false_fail": 0,
+        "false_pass": 0,
+        "item_false_fail": 0,
+        "item_false_pass": 0,
+        "missing_items": 0,
+        "planned": 1,
+        "planned_items": 3,
+        "uncertain_items": 0,
+        "valid_items": 3
+      },
+      "note-rejected-misreported": {
+        "complete": 1,
+        "false_fail": 0,
+        "false_pass": 0,
+        "item_false_fail": 0,
+        "item_false_pass": 0,
+        "missing_items": 0,
+        "planned": 1,
+        "planned_items": 3,
+        "uncertain_items": 0,
+        "valid_items": 3
+      },
+      "off-topic": {
+        "complete": 1,
+        "false_fail": 0,
+        "false_pass": 0,
+        "item_false_fail": 0,
+        "item_false_pass": 0,
+        "missing_items": 0,
+        "planned": 1,
+        "planned_items": 2,
+        "uncertain_items": 0,
+        "valid_items": 2
+      },
+      "search-grounded": {
+        "complete": 1,
+        "false_fail": 0,
+        "false_pass": 0,
+        "item_false_fail": 0,
+        "item_false_pass": 0,
+        "missing_items": 0,
+        "planned": 1,
+        "planned_items": 2,
+        "uncertain_items": 0,
+        "valid_items": 2
+      },
+      "search-invented": {
+        "complete": 1,
+        "false_fail": 0,
+        "false_pass": 0,
+        "item_false_fail": 0,
+        "item_false_pass": 0,
+        "missing_items": 0,
+        "planned": 1,
+        "planned_items": 2,
+        "uncertain_items": 0,
+        "valid_items": 2
+      }
+    },
+    "critical_false_pass": 0,
+    "critical_false_pass_by_source": {
+      "judge": 0,
+      "mechanical": 0
+    },
+    "critical_false_pass_rates": {
+      "judge": {
+        "denominator": 0,
+        "numerator": 0
+      },
+      "mechanical": {
+        "denominator": 0,
+        "numerator": 0
+      }
+    },
+    "critical_undetermined": 0,
+    "critical_undetermined_by_source": {
+      "judge": 0,
+      "mechanical": 0
+    },
+    "example_coverage": {
+      "denominator": 10,
+      "numerator": 10
+    },
+    "false_fail": {
+      "denominator": 5,
+      "numerator": 0
+    },
+    "false_pass": {
+      "denominator": 5,
+      "numerator": 0
+    },
+    "families": 10,
+    "item_counts": {
+      "turn-1-faithfulness": {
+        "false_fail": 0,
+        "false_pass": 0,
+        "missing": 0,
+        "ok": 10,
+        "planned": 10,
+        "uncertain": 0,
+        "valid": 10
+      },
+      "turn-1-outcome_report": {
+        "false_fail": 0,
+        "false_pass": 0,
+        "missing": 0,
+        "ok": 6,
+        "planned": 6,
+        "uncertain": 0,
+        "valid": 6
+      },
+      "turn-1-relevance": {
+        "false_fail": 0,
+        "false_pass": 0,
+        "missing": 0,
+        "ok": 10,
+        "planned": 10,
+        "uncertain": 0,
+        "valid": 10
+      }
+    },
+    "judge_coverage": {
+      "denominator": 26,
+      "numerator": 26
+    },
+    "next_measurement_eligible": false,
+    "phase": "tuning",
+    "planned": 10,
+    "repeat_agreement": {
+      "denominator": 0,
+      "numerator": 0
+    },
+    "schema_version": "eval-adoption-v2"
+  },
+  "results": [
+    {
+      "diagnostic": "diagnostics/C1.json",
+      "error_code": null,
+      "example_id": "C1",
+      "failure": null,
+      "status": "ok",
+      "usage": {
+        "input_tokens": 1599,
+        "missing_reason": null,
+        "output_tokens": 242,
+        "reasoning_tokens": 184,
+        "requests": 1
+      }
+    },
+    {
+      "diagnostic": "diagnostics/C2.json",
+      "error_code": null,
+      "example_id": "C2",
+      "failure": null,
+      "status": "ok",
+      "usage": {
+        "input_tokens": 1609,
+        "missing_reason": null,
+        "output_tokens": 263,
+        "reasoning_tokens": 205,
+        "requests": 1
+      }
+    },
+    {
+      "diagnostic": "diagnostics/C3.json",
+      "error_code": null,
+      "example_id": "C3",
+      "failure": null,
+      "status": "ok",
+      "usage": {
+        "input_tokens": 1438,
+        "missing_reason": null,
+        "output_tokens": 204,
+        "reasoning_tokens": 146,
+        "requests": 1
+      }
+    },
+    {
+      "diagnostic": "diagnostics/C4.json",
+      "error_code": null,
+      "example_id": "C4",
+      "failure": null,
+      "status": "ok",
+      "usage": {
+        "input_tokens": 1610,
+        "missing_reason": null,
+        "output_tokens": 105,
+        "reasoning_tokens": 50,
+        "requests": 1
+      }
+    },
+    {
+      "diagnostic": "diagnostics/C5.json",
+      "error_code": null,
+      "example_id": "C5",
+      "failure": null,
+      "status": "ok",
+      "usage": {
+        "input_tokens": 1523,
+        "missing_reason": null,
+        "output_tokens": 278,
+        "reasoning_tokens": 193,
+        "requests": 1
+      }
+    },
+    {
+      "diagnostic": "diagnostics/C6.json",
+      "error_code": null,
+      "example_id": "C6",
+      "failure": null,
+      "status": "ok",
+      "usage": {
+        "input_tokens": 1486,
+        "missing_reason": null,
+        "output_tokens": 200,
+        "reasoning_tokens": 118,
+        "requests": 1
+      }
+    },
+    {
+      "diagnostic": "diagnostics/C7.json",
+      "error_code": null,
+      "example_id": "C7",
+      "failure": null,
+      "status": "ok",
+      "usage": {
+        "input_tokens": 1540,
+        "missing_reason": null,
+        "output_tokens": 174,
+        "reasoning_tokens": 92,
+        "requests": 1
+      }
+    },
+    {
+      "diagnostic": "diagnostics/C8.json",
+      "error_code": null,
+      "example_id": "C8",
+      "failure": null,
+      "status": "ok",
+      "usage": {
+        "input_tokens": 1509,
+        "missing_reason": null,
+        "output_tokens": 273,
+        "reasoning_tokens": 191,
+        "requests": 1
+      }
+    },
+    {
+      "diagnostic": "diagnostics/C9.json",
+      "error_code": null,
+      "example_id": "C9",
+      "failure": null,
+      "status": "ok",
+      "usage": {
+        "input_tokens": 1545,
+        "missing_reason": null,
+        "output_tokens": 208,
+        "reasoning_tokens": 132,
+        "requests": 1
+      }
+    },
+    {
+      "diagnostic": "diagnostics/C10.json",
+      "error_code": null,
+      "example_id": "C10",
+      "failure": null,
+      "status": "ok",
+      "usage": {
+        "input_tokens": 1522,
+        "missing_reason": null,
+        "output_tokens": 184,
+        "reasoning_tokens": 102,
+        "requests": 1
+      }
+    }
+  ],
+  "schema_version": "sample-judge-validation-v2",
+  "scoring_identity_hash": "efbb6abd4a8f99c66e33976cb97e8e4b4fd75fa2e4a77f2982d0df5aab8e3485"
+}

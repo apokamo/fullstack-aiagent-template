@@ -1,0 +1,157 @@
+{
+  "complete": true,
+  "dataset_hash": "46591911638025073162194c28e7b16b15b2963154e0ed88c66b84ae4493cc7f",
+  "dataset_version": "sample-tools-v1",
+  "execution_config": {
+    "instructions_digest": "5bd675861d33129225e90f27f511e0d9d158590aa0a91f8670e395ce0ca0a4d2",
+    "output_mode": "natural",
+    "tools_digest": "aea99527c87061b34e3ade3d39867f8934381f955ac545772e6fbe3f7fd20edf"
+  },
+  "identity_fingerprint": "85bc591d6fc9dd800683c069f29c4fcd02aea8fe433c251699a3793cd7797cc4",
+  "planned_trials": 8,
+  "profile": "openai-luna-responses",
+  "repeats": 1,
+  "run_id": "local-20260928T143429Z-d08283",
+  "schema_version": "sample-eval-run-v1",
+  "scoring_identity_hash": null,
+  "suite": "sample",
+  "tree_dirty": false,
+  "trials": [
+    {
+      "case_id": "M1",
+      "cost_usd": 0.0,
+      "items": [],
+      "judge_status": "not_executed",
+      "judge_usage": null,
+      "observation": {
+        "digest": "161d35ad9804b66afe897c0b11f9449c852489184bfab6be3835353940750419",
+        "kind": "observations",
+        "record_id": "M1-r1"
+      },
+      "observation_complete": true,
+      "outcome": null,
+      "repeat": 1,
+      "score": null,
+      "structural_errors": []
+    },
+    {
+      "case_id": "M2",
+      "cost_usd": 0.0,
+      "items": [],
+      "judge_status": "not_executed",
+      "judge_usage": null,
+      "observation": {
+        "digest": "4830cb14beab293b3b94d827aa92c5c35137d82b790aa1e1a0ca55f10fff3350",
+        "kind": "observations",
+        "record_id": "M2-r1"
+      },
+      "observation_complete": true,
+      "outcome": null,
+      "repeat": 1,
+      "score": null,
+      "structural_errors": []
+    },
+    {
+      "case_id": "M3",
+      "cost_usd": 0.0,
+      "items": [],
+      "judge_status": "not_executed",
+      "judge_usage": null,
+      "observation": {
+        "digest": "6884a3c93d1069a5c3984eef93e7e067740f1cb2b63b358fcf4e08519fed6f31",
+        "kind": "observations",
+        "record_id": "M3-r1"
+      },
+      "observation_complete": true,
+      "outcome": null,
+      "repeat": 1,
+      "score": null,
+      "structural_errors": []
+    },
+    {
+      "case_id": "M4",
+      "cost_usd": 0.0,
+      "items": [],
+      "judge_status": "not_executed",
+      "judge_usage": null,
+      "observation": {
+        "digest": "1cfc512039a5d323803ed55be6f236a97fc3bc8a7a440c1fc1a0611a8a9eb1df",
+        "kind": "observations",
+        "record_id": "M4-r1"
+      },
+      "observation_complete": true,
+      "outcome": null,
+      "repeat": 1,
+      "score": null,
+      "structural_errors": []
+    },
+    {
+      "case_id": "M5",
+      "cost_usd": 0.0,
+      "items": [],
+      "judge_status": "not_executed",
+      "judge_usage": null,
+      "observation": {
+        "digest": "2a9441fc0756c4fa9f2e1235660afde51c0ebc0301dc3dca10e4deec49deedc7",
+        "kind": "observations",
+        "record_id": "M5-r1"
+      },
+      "observation_complete": true,
+      "outcome": null,
+      "repeat": 1,
+      "score": null,
+      "structural_errors": []
+    },
+    {
+      "case_id": "M6",
+      "cost_usd": 0.0,
+      "items": [],
+      "judge_status": "not_executed",
+      "judge_usage": null,
+      "observation": {
+        "digest": "368575c46823b4c2f38faab3fc7572f8123fc7110a22df323acd01526392738d",
+        "kind": "observations",
+        "record_id": "M6-r1"
+      },
+      "observation_complete": true,
+      "outcome": null,
+      "repeat": 1,
+      "score": null,
+      "structural_errors": []
+    },
+    {
+      "case_id": "M7",
+      "cost_usd": 0.0,
+      "items": [],
+      "judge_status": "not_executed",
+      "judge_usage": null,
+      "observation": {
+        "digest": "9f7207be50e15a00c0fbe9ea645f4bb264f4d211038db5284bc2a9ab85778c46",
+        "kind": "observations",
+        "record_id": "M7-r1"
+      },
+      "observation_complete": true,
+      "outcome": null,
+      "repeat": 1,
+      "score": null,
+      "structural_errors": []
+    },
+    {
+      "case_id": "M8",
+      "cost_usd": 0.0,
+      "items": [],
+      "judge_status": "not_executed",
+      "judge_usage": null,
+      "observation": {
+        "digest": "4c9c9a823e542478247b7a7cea0f5fb14b90ce61025c18d153dd4e139027e6bf",
+        "kind": "observations",
+        "record_id": "M8-r1"
+      },
+      "observation_complete": true,
+      "outcome": null,
+      "repeat": 1,
+      "score": null,
+      "structural_errors": []
+    }
+  ]
+}

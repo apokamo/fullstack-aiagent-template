@@ -199,8 +199,8 @@ JUDGE_PROFILES: Final[Mapping[str, JudgeProfile]] = MappingProxyType(
             provider="OpenAI",
             model="gpt-6-luna",
             base_url="https://api.openai.com/v1",
-            # 1 観測の全項目を 1 request で採点する用途なので、推論は low で足りる。
-            reasoning_effort="low",
+            # low では推論を省いて、必須の evidence の引用を落とすことがある。推論を省かない medium にする。
+            reasoning_effort="medium",
         ),
     }
 )

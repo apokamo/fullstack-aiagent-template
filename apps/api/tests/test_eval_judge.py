@@ -7,16 +7,19 @@ import json
 from typing import Any
 
 import httpx
+from pydantic import ValidationError
 import pytest
 
 from apps.api.agent.evals.evidence import ArtifactRef, EvidenceError, canonical_hash
 from apps.api.agent.evals.grading import JudgeEvidence, JudgeInput, Obligation
 from apps.api.agent.evals.judge_client import (
+    DIAGNOSTIC_VERSION,
     JudgeSettings,
     ResponsesJudge,
     absent_usage,
     parse_result,
     references,
+    reparse_diagnostic,
 )
 from apps.api.agent.evals.privacy import PrivacyFilter
 from apps.api.core.llm_profiles import DEFAULT_JUDGE_PROFILE
@@ -51,9 +54,8 @@ def request_input() -> JudgeInput:
     )
 
 
-def wire(value: JudgeInput) -> dict[str, Any]:
+def wire() -> dict[str, Any]:
     return {
-        "input_hash": canonical_hash(value),
         "items": [
             {
                 "item_id": "faithfulness",
@@ -64,7 +66,7 @@ def wire(value: JudgeInput) -> dict[str, Any]:
     }
 
 
-def response_body(value: JudgeInput) -> dict[str, Any]:
+def response_body() -> dict[str, Any]:
     return {
         "id": "resp_fixture",
         "object": "response",
@@ -81,7 +83,7 @@ def response_body(value: JudgeInput) -> dict[str, Any]:
                 "content": [
                     {
                         "type": "output_text",
-                        "text": json.dumps(wire(value)),
+                        "text": json.dumps(wire()),
                         "annotations": [],
                     }
                 ],
@@ -112,19 +114,23 @@ def test_actual_sdk_contract_and_usage() -> None:
         assert body["text"]["format"]["strict"] is True
         schema = body["text"]["format"]["schema"]
         assert schema["properties"]["items"]["minItems"] == len(value.items)
+        assert "input_hash" not in schema["properties"]
+        assert schema["required"] == ["items"]
         assert schema["$defs"]["WireItem"]["properties"]["item_id"]["enum"] == [
             "faithfulness"
         ]
         transmitted = json.loads(body["input"][0]["content"])
+        assert set(transmitted) == {"input", "references"}
         assert transmitted["references"] == [
             r.model_dump(mode="json") for r in references(value)
         ]
         assert len(body["input"]) == 1 and body["input"][0]["role"] == "user"
-        return httpx.Response(200, json=response_body(value))
+        return httpx.Response(200, json=response_body())
 
     judge = ResponsesJudge(SETTINGS, RUBRIC, transport=httpx.MockTransport(serve))
     result = asyncio.run(judge.grade(value))
     assert result.status == "ok" and result.items[0].outcome == "pass"
+    assert result.input_hash == canonical_hash(value)
     assert (
         result.usage.requests == 1
         and result.usage.input_tokens == 7
@@ -132,6 +138,23 @@ def test_actual_sdk_contract_and_usage() -> None:
         and result.usage.reasoning_tokens == 3
     )
     assert len(calls) == 1
+
+
+def test_the_default_judge_reasons_and_cites_every_required_evidence() -> None:
+    bodies = []
+
+    def serve(request: httpx.Request) -> httpx.Response:
+        bodies.append(json.loads(request.content))
+        return httpx.Response(200, json=response_body())
+
+    judge = ResponsesJudge(SETTINGS, RUBRIC, transport=httpx.MockTransport(serve))
+    asyncio.run(judge.grade(request_input()))
+    (body,) = bodies
+    assert body["reasoning"] == {"effort": "medium"}
+    assert (
+        "An item's references must include the reference of every evidence_id"
+        " listed in that item's evidence_ids" in body["instructions"]
+    )
 
 
 @pytest.mark.parametrize(
@@ -167,17 +190,13 @@ def test_http_failure_no_retry_and_fatal_stop(status: int, fatal: bool) -> None:
 )
 def test_response_failures_are_not_model_failures(kind: str) -> None:
     value = request_input()
-    body = response_body(value)
+    body = response_body()
     if kind == "refusal":
         body["output"][0]["content"] = [
             {"type": "refusal", "refusal": "PRIVATE-SENTINEL"}
         ]
-    elif kind == "no-usage":
-        body["usage"] = None
     else:
-        data = wire(value)
-        data["input_hash"] = "c" * 64
-        body["output"][0]["content"][0]["text"] = json.dumps(data)
+        body["usage"] = None
     judge = ResponsesJudge(
         SETTINGS,
         RUBRIC,
@@ -191,6 +210,29 @@ def test_response_failures_are_not_model_failures(kind: str) -> None:
     else:
         assert result.items == ()
     assert "PRIVATE-SENTINEL" not in result.model_dump_json()
+
+
+def test_an_echoed_input_hash_is_a_schema_error() -> None:
+    value = request_input()
+    data = wire()
+    data["input_hash"] = canonical_hash(value)
+    body = response_body()
+    body["output"][0]["content"][0]["text"] = json.dumps(data)
+    judge = ResponsesJudge(
+        SETTINGS,
+        RUBRIC,
+        transport=httpx.MockTransport(lambda _: httpx.Response(200, json=body)),
+    )
+    result = asyncio.run(judge.grade(value))
+    assert result.status == "parser_error"
+    assert result.error_code == "invalid_judge_result" and result.items == ()
+    assert judge.last_diagnostic is not None
+    failure = json.loads(json.dumps(judge.last_diagnostic["failure"]))
+    assert failure["schema_errors"] == [
+        {"type": "extra_forbidden", "loc": ["input_hash"]}
+    ]
+    with pytest.raises(ValidationError):
+        parse_result(json.dumps(data), value, absent_usage(1, "fixture"))
 
 
 def test_real_network_structurally_forbidden() -> None:
@@ -274,18 +316,16 @@ def test_cross_turn_and_required_evidence_are_rejected():
         ("r1", "unknown_evidence_reference"),
         ("r2", "required_evidence_missing"),
     ]:
-        data = wire(value)
+        data = wire()
         data["items"][0]["references"] = [reference]
         with pytest.raises(EvidenceError, match=error):
             parse_result(json.dumps(data), value, absent_usage(1, "fixture"))
 
 
 def test_preparse_diagnostic_and_offline_reparse():
-    from apps.api.agent.evals.judge_client import reparse_diagnostic
-
     value = request_input()
-    body = response_body(value)
-    data = wire(value)
+    body = response_body()
+    data = wire()
     body["output"][0]["content"][0]["text"] = json.dumps(data)
     body["output"].append(
         {
@@ -304,9 +344,35 @@ def test_preparse_diagnostic_and_offline_reparse():
     result = asyncio.run(judge.grade(value))
     diagnostic = judge.last_diagnostic
     assert diagnostic is not None
+    assert diagnostic["version"] == DIAGNOSTIC_VERSION == "judge-diagnostic-v2"
     assert diagnostic["input_hash"] == canonical_hash(value)
     assert diagnostic["usage"]["requests"] == 1
     assert "SENTINEL" not in json.dumps(diagnostic)
     analysis = reparse_diagnostic(diagnostic)
     assert analysis["mode"] == "analysis" and analysis["requests"] == 0
     assert analysis["result"] == result.model_dump(mode="json")
+
+
+def test_a_legacy_diagnostic_is_refused_with_its_reason():
+    value = request_input()
+    judge = ResponsesJudge(
+        SETTINGS,
+        RUBRIC,
+        transport=httpx.MockTransport(
+            lambda _: httpx.Response(200, json=response_body())
+        ),
+    )
+    asyncio.run(judge.grade(value))
+    assert judge.last_diagnostic is not None
+    echoed = {"input_hash": canonical_hash(value), **wire()}
+    legacy = {
+        **judge.last_diagnostic,
+        "version": "judge-diagnostic-v1",
+        "output_text": json.dumps(echoed),
+        "output_hash": canonical_hash(json.dumps(echoed)),
+    }
+    with pytest.raises(EvidenceError, match="legacy_judge_diagnostic"):
+        reparse_diagnostic(legacy)
+    unversioned = {k: v for k, v in legacy.items() if k != "version"}
+    with pytest.raises(EvidenceError, match="diagnostic_version_unsupported"):
+        reparse_diagnostic(unversioned)
