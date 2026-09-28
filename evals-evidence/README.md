@@ -45,7 +45,7 @@ loader は各 suite の code が持ちます。repository root からの解決�
 
 | baseline | loader | 根拠 artifact |
 |---|---|---|
-| [`sample/openai-luna-responses.json`](baselines/sample/openai-luna-responses.json)（v1） | `apps/api/sample/evals/baseline.py` | [`sample/openai-luna-responses/v1/`](baselines/sample/openai-luna-responses/v1/README.md) |
+| [`sample/openai-luna-responses.json`](baselines/sample/openai-luna-responses.json)（v2） | `apps/api/sample/evals/baseline.py` | [`sample/openai-luna-responses/v2/`](baselines/sample/openai-luna-responses/v2/README.md)（v1 の根拠は [`v1/`](baselines/sample/openai-luna-responses/v1/README.md) に残す） |
 
 baseline の無い profile で `make evals` / `make evals-score` を比較つきで実行すると、provider
 request の前に止まります。新しい baseline は `--record-reference` の測定を確認してから追加します。

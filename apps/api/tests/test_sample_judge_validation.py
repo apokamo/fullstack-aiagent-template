@@ -6,7 +6,7 @@
    failure が残り、採点できなかった項目は分母に残って校正は未受理のままになる。
 2. 生の応答を含む診断は run directory の `diagnostics/` に owner だけが読める形で
    保存され、report には生の応答も秘密値も載らない。
-3. 校正の report を変えても `scoring_identity_hash` は変わらず、baseline v1 との
+3. 校正の report を変えても `scoring_identity_hash` は変わらず、baseline v2 との
    比較の preflight を通る。
 """
 
@@ -252,12 +252,12 @@ def test_a_schema_error_reports_its_type_and_loc_without_judge_text(
 
 
 def test_the_validation_report_keeps_the_baseline_scoring_identity() -> None:
-    """校正の report を変えても、採点 identity は baseline v1 と一致する."""
+    """校正の report を変えても、採点 identity は baseline v2 と一致する."""
     judge = ResponsesJudge(SETTINGS, load_rubric())
     baseline = load_baseline(BASELINE_PROFILE)
     expected = {key: baseline[key] for key in REQUIRED_IDENTITY_FIELDS} | {
         "scoring_identity_hash": canonical_hash(scoring_identity(judge.identity))
     }
 
-    assert baseline["version"] == "v1"
+    assert baseline["version"] == "v2"
     assert baseline_failures(baseline, expected) == []
