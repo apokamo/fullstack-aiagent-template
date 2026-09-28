@@ -3,6 +3,9 @@
 - Issue: #15（調査: #1、依存: #14（CLOSED、PR #16 は main `8609c71` でマージ済み））
 - type: `type:bug`、area: `area:backend`、`area:agent-ai`
 - base: `origin/main` `8609c71defe5de497624fa3315ce9b8bca28bbac`
+- 改訂: implement の ABORT（baseline v2 の測定の 4 組目で `judge_failures=1`）の後、人間が D1〜D5 を決めた
+  （2026-09-28、Issue #15 本文の決定事項）。その決定と波及をこの版に反映した。反映前の HEAD は
+  `3342849b80f94828af071003ef02eb766cbf4533`
 
 ## 目的と範囲外
 
@@ -15,15 +18,18 @@
 - wire 契約が変わるので `wire_policy` を上げ、judge の `config_hash` と `scoring_identity_hash` が変わる。
   sample suite の baseline を v2 として測り直して登録する
 - `reparse_diagnostic` は旧形式（応答に `input_hash` を含む）の診断を読まず、旧形式だと分かる理由で拒否する
+- エコーを外した後の judge（effort `low`）は推論を省きやすく、そのとき faithfulness の references から必須の
+  answer が抜けて `required_evidence_missing` になる。judge の reasoning effort を `medium` にし（D1）、指示文に
+  必須の evidence の引用を明記する 1 文を足して（D2）、この失敗を減らす
 
 範囲外（Issue #15 の `## 範囲外` と決定事項）:
 
 - `validate` 経路で欠落の理由を残すこと（#14 で完了済み）
 - ほかの judge 契約（item と reference の重複、answer の必須引用、reference の turn 所属）、rubric、
-  calibration のラベル
-- judge のモデル、effort、profile
-- 自動の再試行、欠けた項目を pass として補完すること
-- 指示文の `Echo input_hash exactly.` 以外の文の変更
+  calibration のラベル。`required_evidence_missing` の検査も変えない（D3）
+- judge のモデルと profile の名前・接続先。effort は D1 で範囲に入れた
+- 自動の再試行、欠けた項目を pass として補完すること、必須の evidence をアプリ側で補うこと（D3）
+- 指示文の変更のうち、`Echo input_hash exactly.` を消すことと、D2 の 1 文を足すこと以外
 
 ## 再現と実際の挙動
 
@@ -31,30 +37,40 @@
 |---|---|---|
 | judge が `input_hash` を 1 文字写し間違えた応答を返す（MockTransport で `input_hash` を別の 64 桁 hex にする。base では `test_sample_judge_validation.py` の `input_hash` 行が再現している） | `parse_result` が `judge_input_hash_mismatch` を投げ、その観測の全項目が `parser_error` になる。校正は未受理、`make evals` / `make evals-score` は `judge_failures` で blocking failure | 応答に `input_hash` の欄が無く、写し間違いが起こりえない。項目の採点がそろっていれば `ok` |
 | 実 LLM（`gpt-6-luna`、effort low）の診断 176 件 | 2 件が hash の写し間違い（2 文字の脱落を pattern に合わせて末尾補完したもの 1 件、1 文字の置換 1 件）。`make evals-judge-validate` の欠落（同一 identity で 140 request 中 3 件）も同じ原因が最有力（#1 の調査） | 写し間違いによる欠落が 0 件 |
+| slice 1（`e622c20`）の HEAD で baseline v2 を測る（effort low） | 校正 C5（1/5 回）と、観測・採点の 4 組目の M4 で `parser_error` / `required_evidence_missing`。どちらも `reasoning_tokens=0` で、`turn-1-faithfulness` の references が result（`r2`）だけで、必須の answer（`r1`）が無い。4 組目は Q4 に当たり ABORT（FAIL の記録は `evals-evidence/scoring/openai-luna-responses/e622c20-local-20260927T192612Z-4a6e4f/`） | 5 組と最後の `make evals` で `judge_failures` 0 |
+| 同じ M4 の入力を、slice 1 の request（effort low）で 20 回送る（Issue #15 の追加調査 E7 の control） | 12 回が推論ゼロ、7 回が `required_evidence_missing` | D1 と D2 を入れた request（E7 の combined）では、M4 30 回・C5 35 回・C7 25 回・C1〜C10 各 5 回の計 130 request で推論ゼロ 0、失敗 0、校正ラベルとの一致 280/280 |
 
 ## 根拠にした一次情報
 
 | 事実 | 根拠 |
 |---|---|
-| 指示文がエコーを求める | `apps/api/agent/evals/judge_client.py:57` `Echo input_hash exactly.` |
-| 応答 schema が `input_hash: Digest` を持つ。strict schema は pattern `^[0-9a-f]{64}$` しか強制できない | `judge_client.py:179-181`、`evidence.py` の `Digest` |
-| 照合と、応答の値をそのまま `JudgeResult` に入れる | `judge_client.py:228-229`（`judge_input_hash_mismatch`）、`judge_client.py:258`（`input_hash=wire.input_hash`） |
-| request body の先頭に `input_hash` がある | `judge_client.py:355-361` |
+| 指示文がエコーを求める | `apps/api/agent/evals/judge_client.py:57` `Echo input_hash exactly.`（base） |
+| 応答 schema が `input_hash: Digest` を持つ。strict schema は pattern `^[0-9a-f]{64}$` しか強制できない | `judge_client.py:179-181`、`evidence.py` の `Digest`（base） |
+| 照合と、応答の値をそのまま `JudgeResult` に入れる | `judge_client.py:228-229`（`judge_input_hash_mismatch`）、`judge_client.py:258`（`input_hash=wire.input_hash`）（base） |
+| request body の先頭に `input_hash` がある | `judge_client.py:355-361`（base） |
 | 1 request に 1 入力。`value` はアプリ自身が送った値なので、対応はアプリ側で保証できる | `ResponsesJudge._grade`（`judge_client.py:345-`）、クラス docstring「One request per conversation」 |
 | `Record` は `extra="forbid"`。`WireResult` から欄を外すと、`input_hash` を含む応答は `ValidationError` になる | `evidence.py:38-41` |
 | 失敗時の `JudgeResult` も `canonical_hash(value)` を入れている | `judge_client.py:206-216`（`failed_result`） |
 | rescore は `result.input_hash != input_hash` を照合する（`JudgeClient` の別実装への防御） | `rescore.py:194`、`rescore.py:247-251` |
 | `scoring_identity` は judge identity（`config_hash`）と、`judge_client.py` を含む集計 code の file digest を畳む | `apps/api/sample/evals/session.py:58`（`AGGREGATION_FILES`）、`session.py:109-129` |
-| `config_hash` は設定・指示文・rubric・`WireResult` の schema・`wire_policy` を畳む | `judge_client.py:118-139` |
-| base の `config_hash` は `9bac091c…f882`、`scoring_identity_hash` は `d5c026d4…981d9c`（baseline v1 と一致） | 設計時に base で計算（下の「実装前の基準」） |
+| `config_hash` は設定（`effort` を含む）・指示文・rubric・`WireResult` の schema・`wire_policy` を畳む | `judge_client.py:118-139`（`effort=self.effort` は 126 行目） |
+| base の `config_hash` は `9bac091c…f882`、`scoring_identity_hash` は `d5c026d4…981d9c`（baseline v1 と一致） | 設計時に base で計算 |
+| 改訂前の HEAD（`3342849`）の effort は `low`、`config_hash` は `c43a5d20…46c7`、`scoring_identity_hash` は `67fbb618…9f9e32` | 改訂時に計算（下の「実装前の基準」） |
+| judge の effort は `JUDGE_PROFILES` の `reasoning_effort` だけで決まり、コメントが「推論は low で足りる」としている | `apps/api/core/llm_profiles.py:197-205` |
+| judge profile の不変条件は、effort が `ALLOWED_REASONING_EFFORTS` に入ること | `apps/api/tests/test_llm_profiles.py:109-117` |
+| 送る request の `reasoning` は `SETTINGS.effort` と比べているだけで、値そのもの（`low` / `medium`）は固定していない | `apps/api/tests/test_eval_judge.py:110` |
+| agent の `identity_fingerprint` は profile の値から作る。`llm_profiles.py` の bytes は読まないので、judge profile を変えても agent の identity は変わらない | `apps/api/agent/evals/runner.py:441-450`、`session.py:101`（bytes を読むのは `AGGREGATION_FILES` だけ） |
+| 費用の見積りは token 数の固定値から計算し、effort に左右されない | `session.py:67-68`（`NOMINAL_JUDGE_*`）、`session.py:132-138` |
+| 推論の有無と失敗の関係、D1・D2 の効果（E1〜E7、計 922 request） | Issue #15 の調査コメント（`issuecomment-5862981117`、`issuecomment-5863578153`） |
 | baseline は profile ごとに 1 ファイル。v1 の根拠 artifact は `v1/` に残る | `evals-evidence/README.md`、`docs/dev/llm-evals.md`「baselineとidentity」「測定記録の置き場」 |
 | v1 の測り方: 校正 5 回、`make evals-observe` と `make evals-score SCORE_ARGS="--observations <run> --record-reference"` の組 5 回。artifact は commit SHA の field（`commit_sha`、`scoring_sha`、`source_sha`）だけを除いた JSON | `evals-evidence/baselines/sample/openai-luna-responses/v1/README.md` |
 | `reparse_diagnostic` を呼ぶのはテストだけ。診断は git 管理外で、v1 の根拠 artifact に診断は無い | `test_eval_judge.py:283`、v1 の `README.md`「files」、grill-me provenance |
-| 旧診断の `version` は `judge-diagnostic-v1` | `judge_client.py:379` |
+| 旧診断の `version` は `judge-diagnostic-v1` | `judge_client.py:379`（base） |
 | tracked baseline の identity を検査するテストがある | `test_sample_judge_validation.py:236-245`（`baseline["version"] == "v1"`） |
-| 実行されない hash 不一致の分岐がある（parametrize に対応する kind が無い） | `test_eval_judge.py:164-180` |
+| 実行されない hash 不一致の分岐がある（parametrize に対応する kind が無い） | `test_eval_judge.py:164-180`（base） |
 | 比較つき `make evals` は identity が 1 項目でも違う baseline とは比べず、provider request の前に止まる | `apps/api/sample/evals/baseline.py`（`baseline_failures`）、`docs/dev/llm-evals.md` |
 | 閾値未達は FAIL のまま記録し、測定内容を手で変更した baseline は登録しない | `docs/dev/llm-evals.md`「完走と観測証跡の照合」 |
+| コードのコメントには理由と制約だけを書き、経緯や Issue 番号は書かない | `docs/dev/git-conventions.md`「コメントの方針」 |
 
 ## 原因（壊れている境界）
 
@@ -63,13 +79,22 @@
 値の一致を保証できないので、写し間違いがそのまま採点全体の失敗になる。エコーを求める理由は docs にも designs にも
 書かれていない（Issue #15 原因）。
 
+エコーを外すと、2 つ目の境界が表に出る。judge の推論の量である。effort `low` の judge は推論するかどうかを
+自分で決める。エコーの作業（指示文の一文か、応答 schema の欄）があると推論を始めていたが、無くなると多くの
+request で推論を省く（E2 の M5 で推論ゼロが 0/20 → 19/20）。推論を省いた judge は、C5・M4 型の入力（1 turn に
+relevance・faithfulness・outcome_report、tool の result あり）で faithfulness に result だけを引用し、必須の
+answer を落とす。指示文の `Cite every required evidence ID through its reference.` は、item ごとの
+`evidence_ids` と reference の対応を明示していない。どちらも調査コメント（E2・E3・E6・E7）による。
+
 ## 設計
 
 ### 1. wire 契約（`apps/api/agent/evals/judge_client.py`）
 
+slice 1（`e622c20`）で実装済み。D5 によりそのまま残す。
+
 | 対象 | 変更前 | 変更後 |
 |---|---|---|
-| `INSTRUCTIONS` の最終行 | `Echo input_hash exactly. Provide no tools, actions or alternative output format.` | `Provide no tools, actions or alternative output format.`（ほかの行は 1 文字も変えない） |
+| `INSTRUCTIONS` の最終行 | `Echo input_hash exactly. Provide no tools, actions or alternative output format.` | `Provide no tools, actions or alternative output format.` |
 | `WireResult` | `input_hash: Digest` と `items` | `items: tuple[WireItem, ...]` だけ |
 | `JudgeSettings.identity` の `wire_policy` | `predefined-references-v4` | `predefined-references-v5` |
 | request body（`_grade`） | `{"input_hash", "input", "references"}` | `{"input", "references"}` |
@@ -81,11 +106,15 @@
 - `failed_result`、`rescore.py` の `result.input_hash != input_hash` の照合、`grading.py` の `JudgeResult` は変えない。
   rescore の照合は `JudgeClient` の別実装への防御として残す（`ResponsesJudge` では常に一致する）。
 - 応答に `input_hash` の欄が混ざった場合（旧契約を覚えたモデルなど）は、`extra="forbid"` により `ValidationError`
-  になり、既存の `except ValueError` 分岐が `parser_error` / `invalid_judge_result` と
-  `failure.schema_errors == [{"type": "extra_forbidden", "loc": ["input_hash"]}]` を残す。strict schema
-  （`additionalProperties: false`）の下では provider が弾くので、実運用では起きない想定の防御である。
+  になり、既存の `except ValueError` 分岐が `parser_error` / `invalid_judge_result` を残す。診断の
+  `failure.schema_errors` は `[{"type": "extra_forbidden", "loc": ["input_hash"]}]`。report では
+  `cli._reportable_failure` が `WireResult` / `WireItem` の欄名以外の `loc` を伏せるので `[None]` になる
+  （implement の局所的な明確化。privacy filter は変えない）。strict schema（`additionalProperties: false`）の下では
+  provider が弾くので、実運用では起きない想定の防御である。
 
 ### 2. 診断と `reparse_diagnostic`
+
+slice 1 で実装済み。D5 によりそのまま残す。
 
 - 新しい診断の `version` を `judge-diagnostic-v2` にする。定数 `DIAGNOSTIC_VERSION = "judge-diagnostic-v2"` を
   `judge_client.py` に置き、`_grade` と `reparse_diagnostic` の両方がそれを参照する。
@@ -104,6 +133,8 @@
   `extra_forbidden` として `invalid_judge_result` に見えてしまい、Issue の決定（紛らわしくしない）に反する。
 - 旧形式の見分け方は、`config_hash` の照合ではなく `version` にする（仮定 2）。`reparse_diagnostic` は現在の
   judge identity を受け取らない関数で、`version` だけで決まるほうが引数を変えずに済む。
+- D1・D2 では診断の形は変わらないので、`version` は `judge-diagnostic-v2` のまま上げない。effort と指示文は
+  診断に入る judge identity（`config_hash`）で区別できる。
 
 ### 3. 保存される値と対応の保証
 
@@ -117,32 +148,54 @@
 応答と入力の対応は、1 回の `client.responses.create` に 1 つの `value` を送り、その戻り値を同じ呼び出しの中で
 `parse_result(…, value, …)` に渡すことで保証する（`ResponsesJudge` の既存の構造）。テストで固定する（§テスト (b)）。
 
+### 4. judge の推論量と必須の引用（D1・D2、slice 1b）
+
+| 対象 | 変更前（`3342849`） | 変更後 |
+|---|---|---|
+| `apps/api/core/llm_profiles.py` の `judge-openai-luna-responses` の `reasoning_effort` | `"low"` | `"medium"` |
+| 同じ行のコメント | `# 1 観測の全項目を 1 request で採点する用途なので、推論は low で足りる。` | `# low では推論を省いて、必須の evidence の引用を落とすことがある。推論を省かない medium にする。`（理由だけを書き、経緯と Issue 番号は書かない） |
+| `judge_client.py` の `INSTRUCTIONS` の `Cite every required evidence ID …` の行 | `Cite every required evidence ID through its reference. References must belong to the item's turn.` | `Cite every required evidence ID through its reference. An item's references must include the reference of every evidence_id listed in that item's evidence_ids, even when another reference also supports the decision. References must belong to the item's turn.`（1 行のまま。ほかの行は変えない） |
+
+- 変更後の `INSTRUCTIONS` は、E6・E7 で送った文字列と byte 単位で一致させる（E7 の効果をそのまま根拠にするため）。
+  E501 は無効なので、行を折り返さない。
+- `wire_policy` は `predefined-references-v5` のまま上げない。応答 schema・request body・reference の表は変わらず、
+  指示文と effort はどちらも `config_hash` に入るので、identity は区別できる。
+- 必須の evidence の検査（`parse_result` の `required_evidence_missing`）は変えない（D3）。必須の evidence をアプリが
+  補う案は、references を任意にすると judge が answer を引用しなくなり、C5 で faithfulness の false fail が 2/30
+  出たので採らない（E6 b_optional）。
+- `JudgeSettings`、`request_schema`、`parse_result`、`failed_result`、rescore、privacy filter は変えない。
+- 失敗が構造的に 0 になるわけではない。推論したうえでの `required_evidence_missing` も約 0.5% あった（E2・E4）。
+  残る失敗は、v2 の測定の acceptance（Q4）で FAIL として扱う。
+
 ## 失敗と安全
 
 | 状況 | 挙動 |
 |---|---|
 | 応答に `input_hash` が混ざる | `parser_error` / `invalid_judge_result`。自動で再試行しない。欠けた項目を pass で補わない |
 | 応答の項目が欠ける・重複する・参照が不正 | これまでどおり（`judge_item_coverage`、`duplicate_id`、`unknown_evidence_reference`、`required_evidence_missing`） |
+| effort `medium` でも必須の answer が引用されない | これまでどおり `required_evidence_missing`。アプリ側で補わない（D3） |
 | 旧形式の診断を再解析する | `legacy_judge_diagnostic` で拒否。新旧の検査の決まりを混ぜない |
 | identity が baseline v1 のまま `make evals` を比較つきで動かす | `scoring_identity_hash` の不一致で provider request の前に止まる（既存の preflight）。v2 の登録まで比較つきの `make evals` は動かない |
 | 秘密値 | request body・診断・report の privacy filter は変えない。`input_hash` を外しても送る本文の秘密値の検査は同じ |
+| 費用 | effort `medium` で judge の 1 request あたりの費用は約 +27%（E7 の M4）。上限の数え方は §検証lane |
 
 `scoring_identity` は `judge_client.py`・`grading.py`・`rescore.py`・`evidence.py`・`scorer.py`・`collector.py`・
-`corpus.py`・rubric・dataset の中身を畳む。**v2 の測定を始めた後にこれらを 1 byte でも変えると、v2 の identity が
-崩れて測り直しになる。** 測定は slice 1 の commit を固定してから行い、以降の review 修正がこれらに触れる場合は
-測り直し（費用上限の範囲で）として扱う。`test_the_validation_report_keeps_the_baseline_scoring_identity` がこの
-崩れを決定的に検出する。
+`corpus.py`・rubric・dataset の中身と、judge の `config_hash`（effort を含む）を畳む。**v2 の測定を始めた後に
+これらを 1 byte でも変えるか、judge profile の effort を変えると、v2 の identity が崩れて測り直しになる。**
+測定は slice 1b の commit を固定してから行い、以降の review 修正がこれらに触れる場合は測り直し（費用上限の範囲で）
+として扱う。`test_the_validation_report_keeps_the_baseline_scoring_identity` がこの崩れを決定的に検出する。
+`llm_profiles.py` の bytes は identity に入らないが、judge profile の値は `config_hash` に入る。
 
 ## 文書
 
 | 文書 | 変更 |
 |---|---|
 | `evals-evidence/baselines/sample/openai-luna-responses.json` | v2 に上書き（`version`、`scoring_identity_hash`、`evidence`）。`minimum_rates` は v1 と同じ値 |
-| `evals-evidence/baselines/sample/openai-luna-responses/v2/README.md` | 新規。v1 と同じ節（identity、測定、`minimum_rates` の決め方、files）に、v1 からの変更点（wire 契約）と費用の合計を足す |
+| `evals-evidence/baselines/sample/openai-luna-responses/v2/README.md` | 新規。v1 と同じ節（identity、測定、`minimum_rates` の決め方、files）に、次を足す。v1 からの変更点（wire 契約、judge の effort `medium`、指示文の 1 文）。slice 1 の identity で測って FAIL になった試み（`evals-evidence/scoring/openai-luna-responses/e622c20-local-20260927T192612Z-4a6e4f/` と Issue #15 の ABORT 報告）へのリンク。両方の測定の費用 |
 | `evals-evidence/baselines/sample/openai-luna-responses/v2/judge-validation/`、`v2/runs/` | 新規。v1 と同じ sanitize（commit SHA の field だけを除く） |
 | `evals-evidence/README.md` の baseline 索引 | 行を v2 にし、v1 の根拠 artifact が残ることを併記する |
-| `v1/` 配下 | 変えない |
-| `docs/dev/llm-evals.md` | 変えない。wire 契約の `input_hash` に触れていない（`grep` で確認済み） |
+| `v1/` 配下と `evals-evidence/scoring/openai-luna-responses/e622c20-…/` | 変えない（D5） |
+| `docs/dev/llm-evals.md` | 変えない。wire 契約の `input_hash` にも judge の effort の値にも触れていない（`grep` で確認済み） |
 
 ## テスト
 
@@ -153,38 +206,48 @@
 
 | ケース | 変更 |
 |---|---|
-| `wire()` | `input_hash` を返さない |
-| `test_actual_sdk_contract_and_usage` | (a) `set(transmitted) == {"input", "references"}`、`"input_hash" not in schema["properties"]`、`schema["required"] == ["items"]` を足す。(b) `result.input_hash == canonical_hash(value)` を足す |
-| `test_response_failures_are_not_model_failures` | 実行されない `else`（hash 不一致）分岐を消す。parametrize は `refusal` と `no-usage` のまま |
-| 新規 `test_an_echoed_input_hash_is_a_schema_error`（仮名） | (c) 正しい値の `input_hash` を足した応答でも `parser_error` / `invalid_judge_result`、`items == ()`、診断の `failure.schema_errors == [{"type": "extra_forbidden", "loc": ["input_hash"]}]`。`parse_result` 直呼びでも `ValidationError` |
-| `test_preparse_diagnostic_and_offline_reparse` | `diagnostic["version"] == "judge-diagnostic-v2"` を足す。再解析の結果が一致することは今のまま |
-| 新規 `test_a_legacy_diagnostic_is_refused_with_its_reason`（仮名） | (d) 新しい診断を `version="judge-diagnostic-v1"`・`output_text` に `input_hash` を含む形へ変え（`output_hash` も合わせる）、`reparse_diagnostic` が `EvidenceError` `legacy_judge_diagnostic` を投げる。`version` 欠落は `diagnostic_version_unsupported` |
+| `wire()` | `input_hash` を返さない（slice 1 で実装済み） |
+| `test_actual_sdk_contract_and_usage` | (a) `set(transmitted) == {"input", "references"}`、`"input_hash" not in schema["properties"]`、`schema["required"] == ["items"]` を足す。(b) `result.input_hash == canonical_hash(value)` を足す（slice 1 で実装済み） |
+| `test_response_failures_are_not_model_failures` | 実行されない `else`（hash 不一致）分岐を消す。parametrize は `refusal` と `no-usage` のまま（slice 1 で実装済み） |
+| `test_an_echoed_input_hash_is_a_schema_error`（slice 1 で実装済み） | (c) 正しい値の `input_hash` を足した応答でも `parser_error` / `invalid_judge_result`、`items == ()`、診断の `failure.schema_errors == [{"type": "extra_forbidden", "loc": ["input_hash"]}]`。`parse_result` 直呼びでも `ValidationError` |
+| `test_preparse_diagnostic_and_offline_reparse` | `diagnostic["version"] == "judge-diagnostic-v2"` を足す。再解析の結果が一致することは今のまま（slice 1 で実装済み） |
+| `test_a_legacy_diagnostic_is_refused_with_its_reason`（slice 1 で実装済み） | (d) 新しい診断を `version="judge-diagnostic-v1"`・`output_text` に `input_hash` を含む形へ変え（`output_hash` も合わせる）、`reparse_diagnostic` が `EvidenceError` `legacy_judge_diagnostic` を投げる。`version` 欠落は `diagnostic_version_unsupported` |
+| 新規 `test_the_default_judge_reasons_and_cites_every_required_evidence`（仮名、slice 1b） | (e) 既定の judge profile で MockTransport に送られた request が、`body["reasoning"] == {"effort": "medium"}` で、`body["instructions"]` に D2 の 1 文（`An item's references must include the reference of every evidence_id listed in that item's evidence_ids`）を含む。`3342849` では effort が `low` で文も無いので失敗する |
 
 ### `apps/api/tests/test_sample_judge_validation.py`（medium）
 
 | ケース | 変更 |
 |---|---|
-| `_answer` | 送られた body の `input_hash` を読まず、応答に入れない |
-| parametrize の `input_hash` 行（#14 で足した「hash 写し間違い」） | (c) 相当の `echoed_input_hash` 行へ置き換える。`BROKEN` の応答にだけ `input_hash` を足し、`parser_error` / `invalid_judge_result`、failure は `{"reason": "invalid_judge_result", "schema_errors": [{"type": "extra_forbidden", "loc": ["input_hash"]}]}`。ほかの 3 行は今のまま |
-| 同テストの `schema_errors == []` の assertion | 期待する failure の dict に `schema_errors` を含め、既存の 3 行は `[]` を期待する形に移す（振る舞いは変えない） |
+| `_answer` | 送られた body の `input_hash` を読まず、応答に入れない（slice 1 で実装済み） |
+| parametrize の `input_hash` 行（#14 で足した「hash 写し間違い」） | (c) 相当の `echoed_input_hash` 行へ置き換える。`BROKEN` の応答にだけ `input_hash` を足し、`parser_error` / `invalid_judge_result`。report の failure は `{"reason": "invalid_judge_result", "schema_errors": [{"type": "extra_forbidden", "loc": [None]}]}`、非公開の診断では `loc` が `["input_hash"]`。ほかの 3 行は今のまま（slice 1 で実装済み） |
+| 同テストの `schema_errors == []` の assertion | 期待する failure の dict に `schema_errors` を含め、既存の 3 行は `[]` を期待する形に移す（振る舞いは変えない。slice 1 で実装済み） |
 | `test_the_validation_report_keeps_the_baseline_scoring_identity` | `baseline["version"] == "v2"`。module docstring の 3 項目目を「baseline v2 との比較の preflight を通る」に直す。slice 3（baseline v2 の commit）と同じ commit で変える |
 
-件数: 2 file で 17 件 → 19 件（`test_eval_judge.py` に 2 件追加、`test_sample_judge_validation.py` は置き換えのみ）。
+件数: 2 file で 17 件（base）→ 19 件（slice 1）→ 20 件（slice 1b。`test_eval_judge.py` に (e) を 1 件追加）。
+`test_llm_profiles.py`（11 件）は変えない。`reasoning_effort` の不変条件は `medium` でも満たす。
 
 ## 実装の順序（slice）
 
-1. **code と決定的テスト**（1 commit）: §1・§2 と §テストのうち
-   `test_the_validation_report_keeps_the_baseline_scoring_identity` 以外。この commit の HEAD では、そのテストだけが
-   v1 の identity との不一致で失敗する（baseline の測り直しが要るという期待どおりの信号）。この HEAD では lane record を
-   作らず、`uv run pytest` で当該テスト以外が通ることを確かめる。
-2. **測定**（slice 1 の clean HEAD、commit なし）: `LLM_PROFILE=openai-luna-responses`、`LLM_JUDGE_PROFILE` は既定。
+1. **code と決定的テスト**（`e622c20`、実装済み。D5 で残す）: §1・§2 と §テストのうち slice 1 の分。
+2. **FAIL の記録**（`3342849`、実装済み。D5 で残す）: slice 1 の identity での測定の 4 組目の FAIL report。
+3. **slice 1b: D1・D2 と (e)**（1 commit）: §4 と §テストの (e)。この commit の HEAD では、
+   `test_the_validation_report_keeps_the_baseline_scoring_identity` だけが v1 の identity との不一致で失敗する
+   （baseline の測り直しが要るという期待どおりの信号）。この HEAD では lane record を作らず、`uv run pytest` で
+   当該テスト以外が通ることと、ruff・mypy が通ることを確かめる。
+4. **slice 2: 測定**（slice 1b の clean HEAD、commit なし）: `LLM_PROFILE=openai-luna-responses`、
+   `LLM_JUDGE_PROFILE` は既定。
    1. `make evals-judge-validate` を 5 回
    2. `make evals-observe` → `make evals-score SCORE_ARGS="--observations <run> --record-reference"` の組を 5 回
    3. 各回の後で判定（§検証lane の acceptance）と費用の累計を記録する。1 回でも acceptance を満たさなければ
       そこで止め、§「v2 を登録しないとき」に進む
-3. **baseline v2**（1 commit）: 測定出力を sanitize して `v2/` に置き、baseline JSON・`v2/README.md`・
+   4. 止める判定は、判定の script の終了コードで決める。判定の出力を `grep` などへ pipe して、その終了コードで
+      ループを続けるか決めてはいけない（前回は pipe の終了コードを見たため、FAIL の後に 5 組目まで実行した）。
+      1 組ずつ実行して判定し、次に進むかどうかを確かめてから次の組を実行する
+   5. slice 1 の identity での測定（`e622c20`）の結果は、この測定の判定に使わない。identity が D1・D2 で変わった
+      ので、これは良い結果を選ぶための測り直しではなく、新しい identity の最初の測定である
+5. **slice 3: baseline v2**（1 commit）: 測定出力を sanitize して `v2/` に置き、baseline JSON・`v2/README.md`・
    `evals-evidence/README.md`・`test_the_validation_report_keeps_the_baseline_scoring_identity` を更新する
-4. **最終確認**（slice 3 の clean HEAD）: `LLM_PROFILE=openai-luna-responses make evals`（v2 との比較つき）と
+6. **slice 4: 最終確認**（slice 3 の clean HEAD）: `LLM_PROFILE=openai-luna-responses make evals`（v2 との比較つき）と
    `make check-all`
 
 ### v2 を登録しないとき
@@ -194,30 +257,30 @@
 - 測った全 attempt（provider 障害でやり直した回を含む）の run ID、判定、各 rate、`judge_failures`、error code、
   費用を、implement の ABORT 報告の Issue コメントに書く（sanitize 済みの値だけ。生の応答と judge の引用は書かない）
 - sanitize した report（v1 と同じく commit SHA の field だけを除く）を
-  `evals-evidence/scoring/openai-luna-responses/<slice-1 の短い SHA>-<run-id>/` に置いて commit し、Issue コメントから
+  `evals-evidence/scoring/openai-luna-responses/<slice-1b の短い SHA>-<run-id>/` に置いて commit し、Issue コメントから
   path を示す（worktree を消しても残る）
 - baseline JSON、`v2/`、索引は変えない。人の判断に戻す
 
 ## 検証lane
 
 LLM への影響の分類（`docs/dev/llm-evals.md`「変更目的とIssueの完了条件」）: **ジャッジと採点 code の変更**
-（「rubric、ジャッジ、採点code」の行）。judge の指示文・wire schema・request body が変わり、`config_hash` と
-`scoring_identity_hash` が変わる。agent の profile・指示文・tool 定義は変えないので `identity_fingerprint`
-（`85bc591d…7797cc4`）は変わらない想定で、測定の manifest で確かめる。
+（「rubric、ジャッジ、採点code」の行）。judge の指示文・wire schema・request body・reasoning effort が変わり、
+`config_hash` と `scoring_identity_hash` が変わる。agent の profile・指示文・tool 定義は変えないので
+`identity_fingerprint`（`85bc591d…7797cc4`）は変わらない想定で、測定の manifest で確かめる。
 
 identity: suite `sample`、profile `openai-luna-responses`、judge `judge-openai-luna-responses`（GPT-6 Luna、
-Responses、effort low）、dataset `sample-tools-v1`、scorer `sample-two-stage-v1`、rubric `sample-rubric-v2`、
+Responses、effort medium）、dataset `sample-tools-v1`、scorer `sample-two-stage-v1`、rubric `sample-rubric-v2`、
 calibration `sample-calibration-v2`、repeats 1（8 case、12 turn）。
 
 ### 指標ごとの acceptance と observation
 
-| 指標 | 扱い | 条件（Issue #15 の人間決定 Q3・Q4） |
+| 指標 | 扱い | 条件（Issue #15 の人間決定 Q3・Q4・Q5・D4） |
 |---|---|---|
 | 校正の false pass / false fail（5 回） | acceptance | 5 回すべて 0。1 件でも出たら v2 を登録せず ABORT |
 | 校正の `judge_input_hash_mismatch`（5 回） | acceptance | 0 件（構造上出ない。report の `results[].error_code` で確かめる） |
 | 校正の accepted（`judge_coverage` 95% 以上） | observation | 別の理由の欠けで未受理になった回は登録を止めない。#14 の `results` と診断で理由を示し、follow-up Issue に回す（`llm-evals.md`「観測項目の未達を引き継ぐ」） |
 | 観測と採点の 5 組、最後の `make evals` | acceptance | それぞれで、全 trial の完走（`blocking_failures` 空、`coverage` が計画どおり）、`summary.judge_failures == 0`、`summary.safety_violations == 0`、全 rate が v1 の `minimum_rates` 以上。`--record-reference` の組は `apps.api.sample.evals.baseline.regressions(report["summary"], <v1 の baseline JSON>)` が空であることで判定する。最後の `make evals` は v2（`minimum_rates` は v1 と同値）との比較で `passed` |
-| 費用 | acceptance（上限） | Issue 全体で合計 $0.10 以下。各回の `cost.spent_usd` を累計し、次の実行の見積りを足すと超える時点で止めて人に相談する。見込みは約 $0.04（校正 5 回 約 $0.013、5 組 約 $0.022、最後の `make evals` 約 $0.004） |
+| 費用 | acceptance（上限） | implement での測定の費用だけで、Issue 全体の合計 $0.10 以下（D4。原因の調査の費用は含めない）。slice 1 の測定で $0.030958 を使ったので、残りは $0.069042。各回の `cost.spent_usd` を累計し、次の実行の見積りを足すと残りを超える時点で止めて人に相談する。見込みは約 $0.041（校正 5 回 約 $0.0136、5 組 約 $0.0232（観測 約 $0.0096、採点 約 $0.0136）、最後の `make evals` 約 $0.0046）。judge の費用は slice 1 の実績に E7 の +27% を掛けた |
 
 - 良い結果を選ぶための測り直しはしない。provider 障害（接続エラー、timeout、HTTP 5xx など）で止まった回だけ、
   その記録を残したうえでやり直してよい。やり直しも費用の累計に入れる。
@@ -233,34 +296,41 @@ calibration `sample-calibration-v2`、repeats 1（8 case、12 turn）。
 | `make evals-judge-validate` × 5 | 必須 | 検証 matrix「Eval dataset, scorer, rubric, or judge」。Issue #15 の完了条件 |
 | `make evals-observe` + `make evals-score` × 5 | 必須 | 同上。baseline v2 の根拠 |
 | `make evals`（v2 との比較つき、lane record） | 必須 | 同上の baseline 比較。Issue #15 の完了条件 |
-| `make test-llm` | 不要 | agent の profile 選択・接続・client の生成を変えない。judge の実 provider 経路は `evals-judge-validate` と `evals` が実際に通る |
+| `make test-llm` | 不要 | agent の profile 選択・接続・client の生成を変えない。judge の profile は agent の profile の registry とは別で、judge の実 provider 経路（effort `medium` を含む）は `evals-judge-validate` と `evals` が実際に通る |
 | `make test-e2e` | 不要 | agent の prompt・tool・HITL と画面の流れを変えない（judge の指示文は agent の prompt ではない） |
 | `make verify-frontend` / `make test-on-schema-change` | 不要 | frontend と DB schema を変えない |
 
 ### 実装前の基準（implement-precheck）
 
-base SHA `8609c71` で次を測り、実装後と比べる。
+実 LLM は呼ばない。失敗の再現は、Issue #15 に記録済みの実測（slice 1 の測定の 4 組目の FAIL と、E7 の control の
+M4 7/20）を根拠にする。決定的な基準は、改訂前の HEAD `3342849` で次を測り、実装後と比べる。
 
 - `DB_ENV_CONTEXT=test LLM_PROFILE=ds4-deepseek-v4-flash-chat uv run pytest apps/api/tests/test_eval_judge.py
-  apps/api/tests/test_sample_judge_validation.py --collect-only -q` が 17 件（設計時に確認）。実装後は 19 件
+  apps/api/tests/test_sample_judge_validation.py --collect-only -q` が 19 件（改訂時に確認。3 file に
+  `test_llm_profiles.py` を足すと 30 件）。実装後は 20 件
 - judge の identity: `ResponsesJudge(JudgeSettings.for_profile(DEFAULT_JUDGE_PROFILE), load_rubric())` の
-  `identity.config_hash` が `9bac091cd51010ad326f8e503d8b27dc0eb0d19dd838bc0a18cc7fc0ddfaf882`、
-  `canonical_hash(scoring_identity(identity))` が `d5c026d4b4c791f776f77f6d80cdb5aab24d6c406f5187f5c6177d5d45981d9c`
-  （baseline v1 と一致）。実装後はどちらも変わること
-- 回帰の確認: base で `test_sample_judge_validation.py` の `input_hash` 行が `judge_input_hash_mismatch` を再現して
-  通ること。§テストの (a)・(c) を base に当てると失敗すること（request body に `input_hash` がある、応答の
-  `input_hash` が受理される）で、修正前の挙動を捉えていることを確かめてよい
-- safety net: `make verify-backend` が base SHA で成功すること
+  `settings.effort` が `low`、`identity.config_hash` が
+  `c43a5d2013b68828f526e5a867c0819922fced3d5410ace83460837e6cc346c7`、
+  `canonical_hash(scoring_identity(identity))` が
+  `67fbb61846e1576a7ca46ecd98404e98deed26569e9417ff4a8c2490009f9e32`。実装後は effort が `medium` になり、
+  どちらの hash も変わること
+- 回帰の確認: §テストの (e) を `3342849` に当てると失敗すること（effort が `low`、D2 の文が無い）
+- safety net: `3342849` で、`DB_ENV_CONTEXT=test LLM_PROFILE=ds4-deepseek-v4-flash-chat uv run pytest apps/api/tests
+  -m "small or medium" --deselect apps/api/tests/test_sample_judge_validation.py::test_the_validation_report_keeps_the_baseline_scoring_identity`
+  が成功し、ruff（check・format）と mypy が通ること。`make verify-backend` は、v1 の identity の検査が期待どおり
+  失敗するので、この HEAD では safety net にしない
 
 ## 完了条件との対応
 
-| Issue #15 の完了条件 | 満たし方 |
+| Issue #15 の完了条件・決定 | 満たし方 |
 |---|---|
 | judge の応答に `input_hash` が無く、写し間違いで採点が落ちる経路が無い。対応と `JudgeResult.input_hash` の値を決定的テストで固定する | §1・§3。テスト (a)〜(d) と `echoed_input_hash` 行 |
+| D1・D2（effort `medium`、必須の引用の 1 文） | §4。テスト (e)。効果は slice 2 の acceptance で確かめる |
+| D3（`required_evidence_missing` の検査は変えない） | §4。`parse_result` を変えない |
 | `make evals-judge-validate` を 5 回、未受理を含む全 attempt を記録。`judge_input_hash_mismatch` 0 件。未受理は #14 の記録で理由を示し、別原因は follow-up | slice 2。`v2/judge-validation/` と `v2/README.md`、observation の follow-up |
 | baseline v2 を v1 と同じ形でレビューして `evals-evidence/` に置き、`make evals` が v2 との比較で成功 | slice 3・4 |
 | `make evals-observe` の観測を `make evals-score` で採点でき、回帰がない | slice 2 の 5 組と acceptance |
-| 実 LLM の実行を必要な回数に絞り、費用を記録する | 5 + 5 + 1 回。費用の累計を `v2/README.md` と報告に書く。上限 $0.10 |
+| 実 LLM の実行を必要な回数に絞り、費用を記録する | 5 + 5 + 1 回。費用の累計（slice 1 の測定の分を含む）を `v2/README.md` と報告に書く。上限は D4 の数え方で $0.10 |
 | `make check-all` が成功する | slice 4 |
 
 ## 判断記録
@@ -272,16 +342,23 @@ base SHA `8609c71` で次を測り、実装後と比べる。
 | `wire_policy` | 上げる | Issue #15 決定事項 | `predefined-references-v4` → `v5` |
 | request body の `input_hash` | 外す（`input` と `references` だけ） | Issue #15 grill-me Q1（人間決定） | — |
 | 自動の再試行・pass の補完 | 入れない | Issue #15 決定事項、`llm-evals.md`「自動の再試行はしない」 | — |
-| ほかの検査 | 変えない | Issue #15 決定事項 | rescore の hash 照合は防御として残す |
+| ほかの検査 | 変えない | Issue #15 決定事項、D3（人間決定） | rescore の hash 照合は防御として残す |
 | `reparse_diagnostic` の旧形式 | 読まず、旧形式だと分かる理由で拒否。`invalid_judge_result` にしない | Issue #15 grill-me Q2（人間決定） | error code `legacy_judge_diagnostic`、未知の version は `diagnostic_version_unsupported`。例外で投げる（§2） |
 | v2 登録へ進む校正の条件 | 5 回すべて false pass 0・false fail 0・hash 不一致 0。別原因の未受理は follow-up。誤判定が出たら ABORT | Issue #15 grill-me Q3（人間決定） | acceptance / observation の表 |
-| 回帰なしの判定と測り直し | 5 組と最後の `make evals` で完走・`judge_failures` 0・安全違反 0・全 rate ≥ v1 下限。未達は FAIL のまま ABORT。測り直しは provider 障害だけ | Issue #15 grill-me Q4（人間決定）、`llm-evals.md`「完走と観測証跡の照合」 | `--record-reference` の組は `regressions()` を v1 の JSON に当てて判定 |
+| 回帰なしの判定と測り直し | 5 組と最後の `make evals` で完走・`judge_failures` 0・安全違反 0・全 rate ≥ v1 下限。未達は FAIL のまま ABORT。測り直しは provider 障害だけ | Issue #15 grill-me Q4（人間決定）、`llm-evals.md`「完走と観測証跡の照合」 | `--record-reference` の組は `regressions()` を v1 の JSON に当てて判定。止める判定は判定 script の終了コードで決める |
 | v2 の `minimum_rates` | v1 と同じ値 | Issue #15 決定事項（分母 8 trial / 12 turn / 4 turn が不変） | — |
-| 費用の上限 | Issue 全体で $0.10 | Issue #15 grill-me Q5（人間決定） | 累計の付け方と止める時点 |
+| 費用の上限 | Issue 全体で $0.10。原因の調査の費用は含めない | Issue #15 grill-me Q5、D4（人間決定） | 残り $0.069042、見込み約 $0.041、累計の付け方と止める時点 |
 | baseline の置き場 | `openai-luna-responses.json` を v2 に上書きし、`v1/` を残す | Issue #15 決定事項、grill-me の解決済み事実（profile ごとに 1 ファイル） | `evals-evidence/README.md` の索引の更新 |
-| 仮定 1: 指示文は `Echo input_hash exactly.` だけを消す | ほかの文は変えない | 仮定（二方向、grill-me）。ほかの judge 契約の見直しは範囲外。設計レビューで確認する | 同じ行の後半 `Provide no tools, …` は残す |
-| 仮定 2: 旧形式の見分け方 | 診断の `version` を `judge-diagnostic-v2` に上げて判定する（`config_hash` の照合はしない） | 仮定（二方向、grill-me が設計に委任）。`reparse_diagnostic` の引数を変えずに済み、version だけで決まる。設計レビューで確認する | 定数 `DIAGNOSTIC_VERSION` |
-| 仮定 3: v2 を登録しないときの FAIL の置き場 | implement の ABORT 報告の Issue コメントと、`evals-evidence/scoring/openai-luna-responses/<sha>-<run-id>/` の sanitize 済み report | 仮定（二方向、grill-me が設計に委任）。`evals-evidence/README.md` の `scoring/` の規約に合い、worktree を消しても残る。設計レビューで確認する | §「v2 を登録しないとき」 |
-| テストの置き換え方 | 実行されない分岐を消し、(a)〜(d) を固定する。#14 の hash 写し間違いの行は (c) 相当へ置き換える | 仮定（二方向、grill-me）。Issue「設計で決めること」2 項目目。設計レビューで確認する | 仮のテスト名、`schema_errors` の期待値の移し方、件数 17 → 19 |
-| slice 1 の HEAD での baseline identity テストの失敗 | 許容し、slice 3 で v2 と同じ commit で直す | 測定は clean HEAD で行う必要がある（report の `tree_dirty`）。identity のテストは測り直しが要る信号として働く | slice 1 では lane record を作らない |
+| judge の reasoning effort | `low` → `medium`。モデルと profile の名前・接続先は変えない | D1（人間決定）。E7 で推論ゼロ 0/130、失敗 0/130 | `llm_profiles.py` のコメントの文言（理由だけ）。`test_llm_profiles.py` の不変条件は変えない |
+| 必須の引用の明記 | `Cite every required evidence ID …` の直後に D2 の 1 文を足す | D2（人間決定）。E6 a_instr、E7 | E6・E7 と byte 単位で同じ文字列。行を折り返さない |
+| 必須の evidence の検査 | 変えない。アプリ側で補わない | D3（人間決定）。E6 b_optional で false fail 2/30 | — |
+| slice 1 と FAIL の記録 | 残し、D1〜D3 を上に足す | D5（人間決定） | slice 1b として 1 commit。slice 1 の identity での測定は v2 の判定に使わない |
+| D1・D2 での `wire_policy` と診断の `version` | どちらも上げない | 設計判断（二方向）。wire schema・body・診断の形が変わらず、effort と指示文は `config_hash` で区別できる。設計レビューで確認する | — |
+| テスト (e) | 既定の judge が送る request の effort と指示文を固定する 1 件を足す | 設計判断（二方向）。`test_eval_judge.py:110` は `SETTINGS.effort` との比較だけで、値を固定していない。bug rubric の「修正前に失敗する回帰テスト」。LLM の振る舞いそのものは slice 2 で測る | 仮名、件数 19 → 20 |
+| 実装前の基準で実 LLM を呼ばない | Issue #15 の記録済みの実測を再現の根拠にする | 設計判断（二方向）。同じ現象を実測済みで、費用と時間の無駄を避ける | `3342849` での identity と件数、(e) の失敗、safety net |
+| 仮定 1: 指示文の変更 | `Echo input_hash exactly.` を消し、D2 の 1 文を足す。ほかの文は変えない | 仮定（二方向、grill-me）に D2 を加えた。ほかの judge 契約の見直しは範囲外 | 同じ行の後半 `Provide no tools, …` は残す |
+| 仮定 2: 旧形式の見分け方 | 診断の `version` を `judge-diagnostic-v2` に上げて判定する（`config_hash` の照合はしない） | 仮定（二方向、grill-me が設計に委任）。`reparse_diagnostic` の引数を変えずに済み、version だけで決まる | 定数 `DIAGNOSTIC_VERSION` |
+| 仮定 3: v2 を登録しないときの FAIL の置き場 | implement の ABORT 報告の Issue コメントと、`evals-evidence/scoring/openai-luna-responses/<sha>-<run-id>/` の sanitize 済み report | 仮定（二方向、grill-me が設計に委任）。`evals-evidence/README.md` の `scoring/` の規約に合い、worktree を消しても残る。slice 1 の FAIL で実際に使った | §「v2 を登録しないとき」 |
+| テストの置き換え方 | 実行されない分岐を消し、(a)〜(d) を固定する。#14 の hash 写し間違いの行は (c) 相当へ置き換える | 仮定（二方向、grill-me）。Issue「設計で決めること」2 項目目 | 件数 17 → 19（slice 1）。report の `loc` は `[None]`（implement の局所的な明確化） |
+| slice 1b の HEAD での baseline identity テストの失敗 | 許容し、slice 3 で v2 と同じ commit で直す | 測定は clean HEAD で行う必要がある（report の `tree_dirty`）。identity のテストは測り直しが要る信号として働く | slice 1b では lane record を作らない |
 | 検証lane | `verify-backend`、`check-all`、校正 5 回、観測と採点 5 組、`make evals`。`test-llm`・`test-e2e` は不要 | `verification-matrix.md`、`llm-evals.md`「変更目的とIssueの完了条件」、Issue #15 完了条件 | 実装前の基準（件数、identity の hash、safety net） |
