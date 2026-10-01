@@ -32,6 +32,7 @@ Issue本文は人間向けの入口です。
 | ファイル | 用途 |
 |---|---|
 | `dev/dev.yaml` | 標準dev。設計・実装・レビューを別工程で回す |
+| `dev/dev-thorough.yaml` | 丁寧版dev。標準devの工程を保ち、推論量と一部timeoutを増やす（[丁寧版dev-thorough](#丁寧版dev-thorough)） |
 | `dev/dev-small.yaml` | 軽量dev。決定済みの小修正で、設計と実装の工程を統合する（[小修正向けdev-small](#小修正向けdev-small)） |
 | `docs/docs.yaml` | docs-onlyの変更 |
 | `incident/incident.yaml` | incidentの調査と対応策の提案 |
@@ -52,8 +53,8 @@ workflowのモデルはバージョン番号ではなくtierで割り当てま�
 
 各YAMLは先頭の`x-models`にtierごとのモデル名をYAML anchorとして1か所だけ書き、各stepは
 `model: *codex-standard`のようにaliasで参照します。モデルを差し替えるときは`x-models`の
-値だけを変えます。anchorはファイルをまたげないので、4本のYAMLのそれぞれで変えます。
-標準effortは`medium`とし、高い推論量が必要なstepは`high`を明示します。各stepの実際の
+値だけを変えます。anchorはファイルをまたげないので、対象の各YAMLで変えます。
+標準effortは`medium`とし、推論量を増やすstepではeffortを明示します。各stepの実際の
 agent / model / effortは各YAMLを正とします。
 
 frontend/fullstackのIssueも標準devで実行します。frontend専用のworkflow familyは持ちません。
@@ -70,6 +71,23 @@ frontend/fullstackのIssueも標準devで実行します。frontend専用のwork
 ```
 
 release、staging deploy、domain固有のworkflowはサポートしていません。
+
+## 丁寧版dev-thorough
+
+複雑な設計や横断変更で推論量を増やしたい場合、起動者が`dev-thorough.yaml`を明示選択します。
+標準devと同じskill、工程、遷移、review cycle、resume設定、品質gateを使います。
+新しいlabelや自動選択は追加しません。`type:docs`はdocs familyを使います。
+
+Claudeは設計・実装・修正を、Codexはレビュー・検証・最終確認を担当します。
+標準devに比べて設計・設計修正・実装・コード修正とCodex各工程のeffortを増やし、
+実装・コード修正・PR修正にはstep固有のtimeoutを設定します。モデル名、effort、timeoutの正本は
+[workflow定義](../../.kaji/wf/custom/dev/dev-thorough.yaml)です。利用時間・利用量が増える可能性があります。
+
+[通常の起動準備](#起動)を済ませたcanonical mainから実行します。
+
+```sh
+uv run --no-sync kaji run .kaji/wf/custom/dev/dev-thorough.yaml <issue-id> --no-auto-recover
+```
 
 ## 小修正向けdev-small
 
